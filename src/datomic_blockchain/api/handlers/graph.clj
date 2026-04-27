@@ -20,11 +20,11 @@
 
       (log/info "Get entity:" entity-id "depth:" depth)
 
-      (let [entity (d/pull db '[*] entity-id)]
+      (let [entity (graph/get-entity db entity-id)]
         (if entity
-          (let [neighbors (graph/get-node-neighbors db entity-id depth)]
+          (let [neighbors (graph/get-node-neighbors db entity-id)]
             (common/success
-             {:entity entity
+             {:entity (into {} entity)
               :neighbors neighbors
               :depth depth}))
           (common/not-found "Entity" entity-id))))))

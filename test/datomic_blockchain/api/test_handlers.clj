@@ -272,6 +272,25 @@
           response (handlers/handle-get-entity request)]
       (is (= 404 (:status response))))))
 
+(deftest handle-get-entity-success-test
+  (testing "Existing PROV entity returns relationships without graph arity errors"
+    (let [parent-id (UUID/randomUUID)
+          entity-id (UUID/randomUUID)
+          _ @(d/transact *conn* [{:db/id "parent"
+                                  :prov/entity parent-id
+                                  :prov/entity-type :product/raw-material}
+                                 {:db/id "entity"
+                                  :prov/entity entity-id
+                                  :prov/entity-type :product/batch
+                                  :prov/wasDerivedFrom parent-id}])
+          request {:params {:id (str entity-id) :depth "1"}}
+          response (handlers/handle-get-entity request)
+          body (parse-response-body response)]
+      (is (= 200 (:status response)))
+      (is (= 1 (get-in body [:data :depth])))
+      (is (= "product/batch" (get-in body [:data :entity :prov/entity-type])))
+      (is (seq (get-in body [:data :neighbors :prov/wasDerivedFrom]))))))
+
 (deftest handle-find-path-invalid-uuids-test
   (testing "Invalid UUID parameters return error"
     (let [request {:params {:from "invalid" :to (str (UUID/randomUUID))}}

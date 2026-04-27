@@ -2,6 +2,7 @@
   "Graph traversal APIs for knowledge graph navigation
   Provides algorithms for navigating PROV-O relationships"
   (:require [taoensso.timbre :as log]
+            [clojure.set :as set]
             [clojure.string :as str]
             [datomic.api :as d])
   (:import [java.util UUID LinkedList]
@@ -500,34 +501,50 @@
    Returns map with :nodes and :edges keys including parents and children"
   [db entity-id depth]
   (let [entity (get-entity db entity-id)
-        node-id (str entity-id)
-        node-type (cond
-                   (:prov/entity entity) :entity
-                   (:prov/activity entity) :activity
-                   (:prov/agent entity) :agent
-                   :else :unknown)
-        node-label (or (:prov/entity-type entity)
-                        (:prov/activity-type entity)
-                        (:prov/agent-type entity)
-                        (str entity-id))
-        parents (get-parents db entity-id)
-        children (get-children db entity-id)
-        edges-from-parents (mapcat (fn [[rel-type parent-ids]]
-                                       (mapv (fn [parent-id]
-                                               {:from (str parent-id)
-                                                :to node-id
-                                                :relation rel-type})
-                                             parent-ids))
-                                     parents)
-        edges-to-children (mapcat (fn [[rel-type child-ids]]
-                                       (mapv (fn [child-id]
-                                               {:from node-id
-                                                :to (str child-id)
-                                                :relation rel-type})
-                                             child-ids))
-                                     children)]
-    {:nodes [{:id node-id :label node-label :type node-type}]
-     :edges (vec (concat edges-from-parents edges-to-children))}))
+        root-eid (:db/id entity)
+        max-depth (max 0 (or depth 1))]
+    (if-not entity
+      {:nodes [] :edges []}
+      (letfn [(node-type [node]
+                (cond
+                  (:prov/entity node) :entity
+                  (:prov/activity node) :activity
+                  (:prov/agent node) :agent
+                  :else :unknown))
+              (node-label [node fallback]
+                (or (:prov/entity-type node)
+                    (:prov/activity-type node)
+                    (:prov/agent-type node)
+                    (:traceability/batch node)
+                    (:prov/agent-name node)
+                    (str fallback)))
+              (node-id [node fallback]
+                (str (or (:prov/entity node)
+                         (:prov/activity node)
+                         (:prov/agent node)
+                         fallback)))
+              (node-data [eid]
+                (when-let [node (get-entity db eid)]
+                  {:id (node-id node eid)
+                   :label (node-label node eid)
+                   :type (node-type node)}))]
+        (let [entity-ids (-> #{root-eid}
+                             (set/union (get-ancestors db root-eid max-depth))
+                             (set/union (get-descendants db root-eid max-depth)))
+              nodes-by-eid (into {}
+                                 (keep (fn [eid]
+                                         (when-let [node (node-data eid)]
+                                           [eid node])))
+                                 entity-ids)
+              node-ids (into {} (map (fn [[eid node]] [eid (:id node)]) nodes-by-eid))
+              edges (for [source-eid (keys nodes-by-eid)
+                          child-eid (get-children db source-eid)
+                          :when (contains? nodes-by-eid child-eid)]
+                      {:from (get node-ids source-eid)
+                       :to (get node-ids child-eid)
+                       :relation :prov/wasDerivedFrom})]
+          {:nodes (vec (vals nodes-by-eid))
+           :edges (vec edges)})))))
 
 ;; ============================================================================
 ;; Development Helpers

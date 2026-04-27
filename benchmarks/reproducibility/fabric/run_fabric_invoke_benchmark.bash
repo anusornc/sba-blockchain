@@ -12,7 +12,7 @@ WARMUP="${WARMUP:-5}"
 WARMUP_SLEEP_SECS="${WARMUP_SLEEP_SECS:-0.5}"
 MEASURE_SLEEP_SECS="${MEASURE_SLEEP_SECS:-0}"
 RUN_ID="${RUN_ID:-fabric_$(date +%Y%m%d_%H%M%S)}"
-OUT_DIR="${OUT_DIR:-${ROOT_DIR}/benchmarks/main-revised/results/${RUN_ID}}"
+OUT_DIR="${OUT_DIR:-${ROOT_DIR}/benchmarks/reproducibility/results/fabric/${RUN_ID}}"
 
 WRITE_RAW="${OUT_DIR}/fabric_write_raw.csv"
 READ_RAW="${OUT_DIR}/fabric_read_raw.csv"

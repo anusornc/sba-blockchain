@@ -10,7 +10,7 @@ BATCH_ID="${BATCH_ID:-UHT-CHOC-CM-2024-001}"
 ENTITY_ID="${ENTITY_ID:-}"
 ACTIVITY_ID="${ACTIVITY_ID:-}"
 RUN_ID="${RUN_ID:-query_$(date +%Y%m%d_%H%M%S)}"
-OUT_DIR="${OUT_DIR:-benchmarks/main-revised/results/${RUN_ID}}"
+OUT_DIR="${OUT_DIR:-benchmarks/reproducibility/results/query/${RUN_ID}}"
 
 RAW_CSV="${OUT_DIR}/query_latency_raw.csv"
 SUMMARY_CSV="${OUT_DIR}/query_latency_summary.csv"
@@ -239,7 +239,7 @@ EOF
 )
 
 # Q1: entity-style lookup by QR/batch trace endpoint (public route)
-bench_one "q1_trace_qr" "GET" "/api/trace/${QR_CODE}" "0"
+bench_one "q1_trace_qr" "GET" "/api/trace/qr/${QR_CODE}" "0"
 
 # Q2-Q4: authenticated query endpoint (whitelisted templates)
 bench_one "q2_batch_lookup" "POST" "/api/query" "1" "${q2_body}" "get-traceability-products"

@@ -229,6 +229,39 @@
         (is (sequential? parents))
         (is (= 1 (count parents)))))))
 
+(deftest build-subgraph-includes-edge-endpoint-nodes-test
+  (testing "Subgraph edges reference nodes included in the visualization payload"
+    (let [conn (get-test-conn)
+          parent-uuid (UUID/randomUUID)
+          middle-uuid (UUID/randomUUID)
+          child-uuid (UUID/randomUUID)
+          _ @(datomic.api/transact conn [{:db/id "parent"
+                                           :prov/entity parent-uuid
+                                           :prov/entity-type :product/raw-material}
+                                          {:db/id "middle"
+                                           :prov/entity middle-uuid
+                                           :prov/entity-type :product/batch
+                                           :prov/wasDerivedFrom parent-uuid}
+                                          {:db/id "child"
+                                           :prov/entity child-uuid
+                                           :prov/entity-type :product/finished-good
+                                           :prov/wasDerivedFrom middle-uuid}])
+          subgraph (graph/build-subgraph (datomic.api/db conn) middle-uuid 1)
+          node-ids (set (map :id (:nodes subgraph)))
+          edges (set (:edges subgraph))]
+      (is (= #{(str parent-uuid) (str middle-uuid) (str child-uuid)}
+             node-ids))
+      (is (= #{{:from (str parent-uuid)
+                :to (str middle-uuid)
+                :relation :prov/wasDerivedFrom}
+               {:from (str middle-uuid)
+                :to (str child-uuid)
+                :relation :prov/wasDerivedFrom}}
+             edges))
+      (is (every? #(and (contains? node-ids (:from %))
+                        (contains? node-ids (:to %)))
+                  edges)))))
+
 (deftest get-parents-no-parents-test
   (testing "Return empty list for entity with no parents"
     (let [conn (get-test-conn)

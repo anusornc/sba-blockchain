@@ -2,6 +2,7 @@
   "Route-level regression tests for API path precedence."
   (:require [clojure.test :refer :all]
             [datomic-blockchain.api.handlers.core :as handlers]
+            [datomic-blockchain.api.handlers.graph :as graph-handlers]
             [datomic-blockchain.api.handlers.traceability :as trace-handlers]
             [datomic-blockchain.api.routes :as routes]
             [datomic-blockchain.api.routes-v2 :as routes-v2]))
@@ -32,4 +33,11 @@
     (with-redefs [trace-handlers/handle-trace-by-qr (fn [_ _] {:status 200 :body "qr"})]
       (is (= 200 (:status (routes-v2/api-routes {:request-method :get
                                                  :uri "/api/trace/qr/QR-123"
+                                                 :headers {}})))))))
+
+(deftest routes-v2-stats-uses-optional-auth-with-correct-arity-test
+  (testing "v2 /api/stats does not call optional-auth with an extra dependency arg"
+    (with-redefs [graph-handlers/handle-get-stats (fn [_ _] {:status 200 :body "stats"})]
+      (is (= 200 (:status (routes-v2/api-routes {:request-method :get
+                                                 :uri "/api/stats"
                                                  :headers {}})))))))

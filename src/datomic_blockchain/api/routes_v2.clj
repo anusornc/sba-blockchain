@@ -124,7 +124,7 @@
 (defroutes optional-auth-routes
   ;; Statistics
   (GET "/api/stats" request
-    (optional-auth graph-handlers/handle-get-stats request *connection*))
+    (optional-auth #(graph-handlers/handle-get-stats % *connection*) request))
   
   ;; Block explorer (public for demo)
   (GET "/api/blocks" request
