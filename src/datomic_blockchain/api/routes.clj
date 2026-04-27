@@ -126,8 +126,10 @@
   (GET "/health" request
         (handlers/handle-health request))
 
-  ;; Public traceability for QR code scanning (consumer-facing)
-  (GET "/api/trace/:qr" [qr :as request]
+  ;; Public traceability for QR code scanning (consumer-facing).
+  ;; Keep the QR lookup on a distinct path so authenticated /api/trace/:id
+  ;; cannot be shadowed by this public route.
+  (GET "/api/trace/qr/:qr" [qr :as request]
         (handlers/handle-trace-by-qr request)))
 
 ;; ============================================================================

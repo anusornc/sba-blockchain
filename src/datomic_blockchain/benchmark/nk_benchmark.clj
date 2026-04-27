@@ -10,9 +10,9 @@
    - Real timing measurements
    - Real supply chain data generation based on NK parameters
 
-   BBSF Standard Compliance:
+   Default full-run profile:
    - Sample size: n=50 per configuration
-   - Confidence level: 95%
+   - Confidence interval: 95%
    - Real measured data (not simulated)
 
    Usage:
@@ -240,17 +240,27 @@
         ;; Extract timing data
         latencies (mapv :latency-ms successful)
 
-        ;; Calculate TPS based on transaction size and timing
-        tps-samples (mapv (fn [r]
-                            (if (pos? (:latency-ms r))
-                              (/ (:tx-data-size r) (:latency-ms r) 1000.0)
-                              0.0))
-                          successful)]
+        ;; One Datomic @(transact) call is one committed transaction.
+        ;; Entity write rate is reported separately so TPS is not inflated
+        ;; by the number of datoms/entities inside a transaction payload.
+        transaction-tps-samples (mapv (fn [r]
+                                        (if (pos? (:latency-ms r))
+                                          (/ 1000.0 (:latency-ms r))
+                                          0.0))
+                                      successful)
+        entity-write-rate-samples (mapv (fn [r]
+                                           (if (pos? (:latency-ms r))
+                                             (/ (* (:tx-data-size r) 1000.0) (:latency-ms r))
+                                             0.0))
+                                         successful)]
 
     (when (pos? failed-count)
       (log/warn "Failed transactions:" failed-count "of" sample-size))
 
-    {:tps-samples tps-samples
+    {:transaction-tps-samples transaction-tps-samples
+     :entity-write-rate-samples entity-write-rate-samples
+     ;; Backward-compatible alias. Prefer :transaction-tps-samples in new code.
+     :tps-samples transaction-tps-samples
      :latency-samples latencies
      :success-count (count successful)
      :failed-count failed-count
@@ -260,7 +270,8 @@
   "Run REAL benchmark for a single NK configuration."
   [connection config sample-size warmup]
   (let [raw-results (run-real-benchmark connection config sample-size warmup)
-        tps-stats (calculate-statistics (:tps-samples raw-results))
+        transaction-tps-stats (calculate-statistics (:transaction-tps-samples raw-results))
+        entity-write-rate-stats (calculate-statistics (:entity-write-rate-samples raw-results))
         latency-stats (calculate-statistics (:latency-samples raw-results))
         success-rate (* 100.0 (/ (:success-count raw-results) (:total-attempts raw-results)))]
 
@@ -269,10 +280,15 @@
      :k (total-interdependencies config)
      :complexity (complexity-score config)
      :landscape-type (landscape-type config)
-     :tps tps-stats
+     :transaction-tps transaction-tps-stats
+     :entity-write-rate entity-write-rate-stats
+     ;; Backward-compatible alias used by existing fitness/report code.
+     :tps transaction-tps-stats
      :latency latency-stats
      :success-rate success-rate
-     :tps-samples (:tps-samples raw-results)
+     :transaction-tps-samples (:transaction-tps-samples raw-results)
+     :entity-write-rate-samples (:entity-write-rate-samples raw-results)
+     :tps-samples (:transaction-tps-samples raw-results)
      :latency-samples (:latency-samples raw-results)
      :failed-count (:failed-count raw-results)}))
 
@@ -305,15 +321,17 @@
   "Export benchmark summary to CSV."
   [results output-dir]
   (let [filename (str output-dir "/nk_summary_" (timestamp-str) ".csv")
-        header "n,k,avg_throughput,std_throughput,ci95_lower,ci95_upper,avg_latency,std_latency,success_rate,landscape_type,fitness,failed_count\n"
+        header "n,k,avg_transaction_tps,std_transaction_tps,transaction_tps_ci95_lower,transaction_tps_ci95_upper,avg_entity_write_rate,std_entity_write_rate,avg_latency,std_latency,success_rate,landscape_type,fitness,failed_count\n"
         rows (map (fn [r]
-                    (format "%d,%d,%.4f,%.4f,%.4f,%.4f,%.4f,%.4f,%.2f,%s,%.6f,%d\n"
+                    (format "%d,%d,%.4f,%.4f,%.4f,%.4f,%.4f,%.4f,%.4f,%.4f,%.2f,%s,%.6f,%d\n"
                             (:n r)
                             (:k r)
                             (get-in r [:tps :mean])
                             (get-in r [:tps :std-dev])
                             (get-in r [:tps :ci-lower])
                             (get-in r [:tps :ci-upper])
+                            (get-in r [:entity-write-rate :mean])
+                            (get-in r [:entity-write-rate :std-dev])
                             (get-in r [:latency :mean])
                             (get-in r [:latency :std-dev])
                             (:success-rate r)
@@ -346,13 +364,16 @@
   "Export detailed per-sample measurements."
   [results output-dir]
   (let [filename (str output-dir "/nk_detailed_" (timestamp-str) ".csv")
-        header "config_id,n,k,sample_index,tps,latency_ms\n"
+        header "config_id,n,k,sample_index,transaction_tps,entity_write_rate,latency_ms\n"
         rows (mapcat (fn [r]
                        (let [cfg-id (format "N%d_K%d" (:n r) (:k r))]
-                         (map-indexed (fn [idx [tps lat]]
-                                       (format "%s,%d,%d,%d,%.4f,%.4f\n"
-                                               cfg-id (:n r) (:k r) idx tps lat))
-                                     (map vector (:tps-samples r) (:latency-samples r)))))
+                         (map-indexed (fn [idx [tps write-rate lat]]
+                                       (format "%s,%d,%d,%d,%.4f,%.4f,%.4f\n"
+                                               cfg-id (:n r) (:k r) idx tps write-rate lat))
+                                     (map vector
+                                          (:transaction-tps-samples r)
+                                          (:entity-write-rate-samples r)
+                                          (:latency-samples r)))))
                      results)]
     (spit filename (str header (apply str rows)))
     filename))
@@ -363,18 +384,21 @@
 
 (defn- generate-analysis-report
   "Generate Markdown analysis report."
-  [results output-dir sample-size]
+  [results output-dir sample-size warmup]
   (let [filename (str output-dir "/NK_ANALYSIS_" (timestamp-str) ".md")
         n-values (distinct (map :n results))
         k-values (distinct (map :k results))
         landscape-types (frequencies (map :landscape-type results))
         best-tps (when (seq results) (apply max-key #(get-in % [:tps :mean]) results))
+        best-write-rate (when (seq results) (apply max-key #(get-in % [:entity-write-rate :mean]) results))
         best-latency (when (seq results) (apply min-key #(get-in % [:latency :mean]) results))
         best-fitness (when (seq results) (apply max-key :fitness results))
+        full-run? (and (>= sample-size 50) (>= warmup 5))
 
         ;; Calculate correlation
         avg-complexity (when (seq results) (double (/ (reduce + (map :complexity results)) (count results))))
-        avg-tps (when (seq results) (double (/ (reduce + (map #(get-in % [:tps :mean]) results)) (count results))))]
+        avg-tps (when (seq results) (double (/ (reduce + (map #(get-in % [:tps :mean]) results)) (count results))))
+        avg-write-rate (when (seq results) (double (/ (reduce + (map #(get-in % [:entity-write-rate :mean]) results)) (count results))))]
 
     (if (empty? results)
       ;; Handle empty results case
@@ -404,7 +428,11 @@
                             "- **Configurations Tested:** " (count results) "\n"
                             "- **N Range:** " (apply min n-values) " - " (apply max n-values) "\n"
                             "- **K Range:** " (apply min k-values) " - " (apply max k-values) "\n"
-                            "- **Sample Size per Config:** " sample-size " (BBSF compliant)\n"
+                            "- **Sample Size per Config:** " sample-size "\n"
+                            "- **Warmup Iterations per Config:** " warmup "\n"
+                            "- **Run Profile:** " (if full-run?
+                                                     "full statistical profile (n>=50, warmup>=5)"
+                                                     "quick/smoke profile; do not use as a main paper TPS claim") "\n"
                             "- **Measurement Type:** REAL blockchain transactions\n"
                             "- **Average Success Rate:** "
                             (format "%.1f%%" (double (/ (reduce + (map :success-rate results)) (count results)))) "\n\n"
@@ -419,14 +447,22 @@
                                                  (sort-by key landscape-types)))
                             "\n\n---\n\n"
                             "## 2. Best Configurations\n\n"
-                            "### Highest Throughput\n"
+                            "### Highest Transaction Throughput\n"
                             "- **N = " (:n best-tps) ", K = " (:k best-tps) "**\n"
-                            "- TPS: " (format "%.2f ± %.2f"
+                            "- Transaction TPS: " (format "%.2f ± %.2f"
                                              (get-in best-tps [:tps :mean])
                                              (get-in best-tps [:tps :ci95])) "\n"
                             "- 95% CI: [" (format "%.2f" (get-in best-tps [:tps :ci-lower]))
                             ", " (format "%.2f" (get-in best-tps [:tps :ci-upper])) "]\n"
                             "- Landscape: " (name (:landscape-type best-tps)) "\n\n"
+                            "### Highest Entity Write Rate\n"
+                            "- **N = " (:n best-write-rate) ", K = " (:k best-write-rate) "**\n"
+                            "- Entity write rate: " (format "%.2f ± %.2f entities/s"
+                                             (get-in best-write-rate [:entity-write-rate :mean])
+                                             (get-in best-write-rate [:entity-write-rate :ci95])) "\n"
+                            "- 95% CI: [" (format "%.2f" (get-in best-write-rate [:entity-write-rate :ci-lower]))
+                            ", " (format "%.2f" (get-in best-write-rate [:entity-write-rate :ci-upper])) "]\n"
+                            "- Landscape: " (name (:landscape-type best-write-rate)) "\n\n"
                             "### Lowest Latency\n"
                             "- **N = " (:n best-latency) ", K = " (:k best-latency) "**\n"
                             "- Latency: " (format "%.2f ± %.2f ms"
@@ -438,20 +474,22 @@
                             "### Best Overall Fitness\n"
                             "- **N = " (:n best-fitness) ", K = " (:k best-fitness) "**\n"
                             "- Fitness Score: " (format "%.4f" (:fitness best-fitness)) "\n"
-                            "- TPS: " (format "%.2f" (get-in best-fitness [:tps :mean])) "\n"
+                            "- Transaction TPS: " (format "%.2f" (get-in best-fitness [:tps :mean])) "\n"
+                            "- Entity write rate: " (format "%.2f entities/s" (get-in best-fitness [:entity-write-rate :mean])) "\n"
                             "- Latency: " (format "%.2f ms" (get-in best-fitness [:latency :mean])) "\n"
                             "- Landscape: " (name (:landscape-type best-fitness)) "\n\n"
                             "---\n\n"
                             "## 3. Complexity-Performance Relationship\n\n"
                             "### Throughput vs Complexity\n\n"
-                            "| N | K | Complexity | Avg TPS | 95% CI | Success Rate |\n"
-                            "|---|---|------------|---------|--------|-------------|\n"
+                            "| N | K | Complexity | Transaction TPS | Entity Write Rate | 95% CI (TPS) | Success Rate |\n"
+                            "|---|---|------------|-----------------|-------------------|--------------|-------------|\n"
                             (str/join "\n" (map (fn [r]
-                                                  (format "| %d | %d | %.2f | %.2f | [%.2f, %.2f] | %.1f%% |"
+                                                  (format "| %d | %d | %.2f | %.2f | %.2f | [%.2f, %.2f] | %.1f%% |"
                                                           (:n r)
                                                           (:k r)
                                                           (:complexity r)
                                                           (get-in r [:tps :mean])
+                                                          (get-in r [:entity-write-rate :mean])
                                                           (get-in r [:tps :ci-lower])
                                                           (get-in r [:tps :ci-upper])
                                                           (:success-rate r)))
@@ -464,10 +502,11 @@
                             "- **K activities**: Processing activities based on K parameter\n"
                             "- **Participants**: Supplier/agent entities (N/4)\n\n"
                             "### Measurement Process\n"
-                            "1. **Warmup:** " (get benchmark-config :warmup-iterations) " iterations per configuration (JIT stabilization)\n"
+                            "1. **Warmup:** " warmup " iterations per configuration (JIT stabilization)\n"
                             "2. **Measurement:** " sample-size " iterations per configuration\n"
                             "3. **Timing:** System/nanoTime() before and after @(d/transact)\n"
-                            "4. **TPS Calculation:** Transaction data size / latency\n\n"
+                            "4. **Transaction TPS:** 1000 / latency_ms, where one @(d/transact) call is one committed transaction\n"
+                            "5. **Entity Write Rate:** tx_data_size * 1000 / latency_ms, reported separately from TPS\n\n"
                             "### Environment\n"
                             "- Database: Datomic (development mode)\n"
                             "- Schema: PROV-O ontology for provenance\n"
@@ -475,17 +514,21 @@
                             "---\n\n"
                             "## 5. Key Findings\n\n"
                             "### Performance Characteristics\n"
-                            "1. **Measured TPS Range:** "
+                            "1. **Measured Transaction TPS Range:** "
                             (format "%.2f - %.2f" (apply min (map #(get-in % [:tps :mean]) results))
                                            (apply max (map #(get-in % [:tps :mean]) results))) "\n"
-                            "2. **Measured Latency Range:** "
+                            "2. **Measured Entity Write Rate Range:** "
+                            (format "%.2f - %.2f entities/s" (apply min (map #(get-in % [:entity-write-rate :mean]) results))
+                                           (apply max (map #(get-in % [:entity-write-rate :mean]) results))) "\n"
+                            "3. **Measured Latency Range:** "
                             (format "%.2f - %.2f ms" (apply min (map #(get-in % [:latency :mean]) results))
                                                (apply max (map #(get-in % [:latency :mean]) results))) " ms\n"
-                            "3. **Success Rate:** "
+                            "4. **Success Rate:** "
                             (format "%.1f%% average" (double (/ (reduce + (map :success-rate results)) (count results)))) "\n\n"
                             "### Complexity Impact\n"
                             "- Average complexity score: " (format "%.2f" avg-complexity) "\n"
-                            "- Average throughput: " (format "%.2f TPS" avg-tps) "\n"
+                            "- Average transaction throughput: " (format "%.2f TPS" avg-tps) "\n"
+                            "- Average entity write rate: " (format "%.2f entities/s" avg-write-rate) "\n"
                             "- Results show real performance degradation with increasing N and K\n\n"
                             "### Limitations\n"
                             "- Single-node development mode (not distributed cluster)\n"
@@ -494,7 +537,9 @@
                             "- JVM warmup effects mitigated by warmup iterations\n\n"
                             "---\n\n"
                             "*Report generated by NK Benchmark Suite (REAL measurements)*\n"
-                            "*BBSF Compliant: n=" sample-size ", 95% CI, " (count results) " configurations*\n"
+                            "*" (if full-run?
+                                  (str "Full statistical profile: n=" sample-size ", warmup=" warmup ", 95% CI, " (count results) " configurations")
+                                  (str "Quick/smoke profile: n=" sample-size ", warmup=" warmup ", 95% CI shown for diagnostics only")) "*\n"
                             "*All data from actual Datomic blockchain execution*\n"
                             "*Generated: " (Date.) "*\n"))
         filename))))
@@ -590,7 +635,7 @@
                   summary-file (export-summary-csv results-with-fitness output-dir)
                   surface-file (export-fitness-surface-csv results-with-fitness output-dir)
                   detailed-file (export-detailed-csv results-with-fitness output-dir)
-                  report-file (generate-analysis-report results-with-fitness output-dir sample-size)]
+                  report-file (generate-analysis-report results-with-fitness output-dir sample-size warmup)]
 
               (println (str "  ✓ Summary CSV: " summary-file))
               (println (str "  ✓ Fitness Surface CSV: " surface-file))

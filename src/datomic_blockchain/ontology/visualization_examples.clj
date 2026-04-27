@@ -20,7 +20,7 @@
     ;;     :links [{:source \"...\" :target \"...\" :value 1}]}
   "
   [kg]
-  (kg/kg->d3 kg))
+  (kb/kg->d3 kg))
 
 (defn d3-tree-layout-data
   "Prepare data for D3.js tree layout
@@ -30,25 +30,23 @@
     (d3-tree-layout-data db root-entity-id)
   "
   [db root-id]
-  (let [root (graph/get-entity db root-id)
-        children-fn (fn [entity-id]
-                       (mapv (fn [child-id]
-                              (let [child (graph/get-entity db child-id)]
-                                {:id (str child-id)
-                                 :name (or (:prov/entity-type child)
-                                            (:prov/activity-type child)
-                                            (str child-id))
-                                 :type (cond
-                                           (:prov/entity child) :entity
-                                           (:prov/activity child) :activity
-                                           (:prov/agent child) :agent
-                                           :else :unknown)
-                                 :children (lazy-seq
-                                            (map (fn [c]
-                                                  (update-in c [:children]
-                                                           #(when (seq %) %)))
-                                                 (children-fn (:id c))))}))
-                            (graph/get-children db entity-id)))]
+  (let [root (graph/get-entity db root-id)]
+    (letfn [(children-fn [entity-id]
+              (mapv (fn [child-id]
+                      (let [child (graph/get-entity db child-id)]
+                        {:id (str child-id)
+                         :name (or (:prov/entity-type child)
+                                   (:prov/activity-type child)
+                                   (str child-id))
+                         :type (cond
+                                 (:prov/entity child) :entity
+                                 (:prov/activity child) :activity
+                                 (:prov/agent child) :agent
+                                 :else :unknown)
+                         :children (let [children (children-fn child-id)]
+                                     (when (seq children)
+                                       children))}))
+                    (graph/get-children db entity-id)))]
     {:id (str root-id)
      :name (or (:prov/entity-type root)
                (:prov/activity-type root)
@@ -71,7 +69,7 @@
                                  (:prov/agent child) :agent
                                  :else :unknown)
                           :children (children-fn child-id)}))
-                     child-ids))}))
+                     child-ids))})))
 
 ;; ============================================================================
 ;; Cytoscape.js Visualization Helpers
@@ -353,8 +351,8 @@
     ;;     :average-path-length 2.4}
   "
   [kg]
-  (let [stats (kg/kg-stats kg)
-        components (kg/kg-find-connected-components kg)
+  (let [stats (kb/kg-stats kg)
+        components (kb/kg-find-connected-components kg)
         component-count (count components)]
     (merge stats
            {:connected-component-count component-count
@@ -380,7 +378,7 @@
                                                 node-degrees))]
     {:highest-degree (first nodes-by-degree)
      :top-nodes (take 10 nodes-by-degree)
-     :average-degree (/ (reduce + (map :degree nodes-by-degree)) 0.0
+     :average-degree (/ (reduce + (map :degree nodes-by-degree))
                         (max 1 (count nodes-by-degree)))}))
 
 ;; ============================================================================
@@ -411,10 +409,10 @@
   (viz/find-critical-nodes kg)
 
   ;; Find shortest path between two entities
-  (viz/kg-find-shortest-path kg entity-a entity-b)
+  (kb/kg-find-shortest-path kg entity-a entity-b)
 
   ;; Filter graph by type
-  (def entities-only (kg/kg-filter-by-type kg [:entity]))
+  (def entities-only (kb/kg-filter-by-type kg [:entity]))
 
   ;; Convert for specific visualization libraries
   (def d3-data (viz/d3-force-layout-data kg))

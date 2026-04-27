@@ -10,6 +10,7 @@
    - Better error handling with user-friendly messages"
   (:require [compojure.core :refer [defroutes GET POST PUT DELETE context routes]]
             [compojure.route :as route]
+            [ring.adapter.jetty :as jetty]
             [ring.util.response :as response]
             [taoensso.timbre :as log]
             [clojure.java.io :as io]
@@ -108,8 +109,9 @@
   (GET "/metrics" request
     (metrics/handle-metrics request))
   
-  ;; Public traceability
-  (GET "/api/trace/:qr" [qr :as request]
+  ;; Public traceability. The QR lookup uses a distinct path so authenticated
+  ;; /api/trace/:id is not shadowed by a public route.
+  (GET "/api/trace/qr/:qr" [qr :as request]
     (trace-handlers/handle-trace-by-qr (assoc request :params {:qr qr}) *connection*))
   
   ;; Dev endpoints (disable in production)
@@ -299,7 +301,7 @@
   (let [port (or port 3000)
         handler (create-handler conn policy-store)]
     (log/info "Starting API v2 server on port" port)
-    (let [jetty-server (ring.adapter.jetty/run-jetty
+    (let [jetty-server (jetty/run-jetty
                         handler
                         {:port port
                          :join? false

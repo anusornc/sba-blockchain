@@ -15,8 +15,7 @@ info:
     name: API Support
     email: api@datomic-blockchain.local
   license:
-    name: MIT
-    url: https://opensource.org/licenses/MIT
+    name: All rights reserved
 
 servers:
   - url: http://localhost:3000
@@ -252,7 +251,7 @@ paths:
         '401':
           $ref: '#/components/responses/Unauthorized'
 
-  /api/trace/{qr}:
+  /api/trace/qr/{qr}:
     get:
       tags:
         - Traceability
