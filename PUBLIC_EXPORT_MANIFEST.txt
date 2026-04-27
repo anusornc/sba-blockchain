@@ -1,0 +1,4 @@
+exported_at_utc=2026-04-27T03:20:47Z
+source_commit=c950c6ffb0683e5b371695e29ecf52686d6e25ae
+target_repo=https://github.com/anusornc/sba-blockchain
+policy=clean-room allowlist export; no private git history

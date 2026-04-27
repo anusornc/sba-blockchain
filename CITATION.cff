@@ -1,0 +1,4 @@
+cff-version: 1.2.0
+title: "Semantic Blockchain Architecture"
+message: "If you use this software, please cite the associated paper."
+repository-code: "https://github.com/anusornc/sba-blockchain"

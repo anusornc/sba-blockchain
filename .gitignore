@@ -1,0 +1,16 @@
+.cpcache/
+.clj-kondo/.cache/
+.nrepl-port
+.env
+target/
+out/
+node_modules/
+resources/public/js/
+*.log
+*.class
+*.jar
+external/
+datomic-pro*/
+crypto-config/
+wallet/
+keystore*

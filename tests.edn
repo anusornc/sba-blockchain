@@ -1,0 +1,10 @@
+#kaocha/v1
+{:tests [{:id :unit
+          :test-paths ["test"]
+          :ns-patterns [".*"]}]
+ :capture-output? true
+ :color? true
+ :fail-fast? false
+ :parallel? false
+ ;; Set test mode environment variable for JWT middleware tests
+ :env {:kaocha-test-mode "1"}}

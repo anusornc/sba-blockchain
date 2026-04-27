@@ -1,0 +1,907 @@
+openapi: 3.0.3
+info:
+  title: Datomic Blockchain API
+  description: |
+    Blockchain with Embedded Ontology and Knowledge Graph for Data Traceability.
+    
+    This API provides:
+    - **Blockchain Operations**: Transaction submission, block exploration
+    - **Graph Queries**: Semantic graph traversal and visualization
+    - **Traceability**: Supply chain tracking with PROV-O ontology
+    - **Permission Control**: Three-tier access control (public/restricted/private)
+    - **Cluster Consensus**: Multi-node consensus protocol endpoints
+  version: 1.1.0
+  contact:
+    name: API Support
+    email: api@datomic-blockchain.local
+  license:
+    name: MIT
+    url: https://opensource.org/licenses/MIT
+
+servers:
+  - url: http://localhost:3000
+    description: Local development server
+  - url: http://localhost:8080
+    description: Docker development server
+
+tags:
+  - name: Health
+    description: System health and status
+  - name: Blocks
+    description: Blockchain block exploration
+  - name: Graph
+    description: Graph visualization and traversal
+  - name: Traceability
+    description: Supply chain traceability
+  - name: Query
+    description: Safe Datalog queries
+  - name: Ontology
+    description: PROV-O ontology management
+  - name: Permissions
+    description: Access control
+  - name: Transactions
+    description: Transaction submission (cluster mode)
+  - name: Cluster
+    description: Internal cluster consensus endpoints
+  - name: Development
+    description: Development and testing helpers
+
+paths:
+  /health:
+    get:
+      tags:
+        - Health
+      summary: Health check
+      description: Returns system health status
+      operationId: getHealth
+      responses:
+        '200':
+          description: System is healthy
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+
+  /api/blocks:
+    get:
+      tags:
+        - Blocks
+      summary: List blocks
+      description: Get paginated list of blockchain transactions
+      operationId: listBlocks
+      parameters:
+        - name: offset
+          in: query
+          description: Starting position for pagination
+          schema:
+            type: integer
+            default: 0
+        - name: limit
+          in: query
+          description: Number of items per page (max 1000)
+          schema:
+            type: integer
+            default: 10
+            maximum: 1000
+      responses:
+        '200':
+          description: List of blocks
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BlockListResponse'
+
+  /api/blocks/{id}:
+    get:
+      tags:
+        - Blocks
+      summary: Get block by ID
+      description: Get detailed information about a specific block
+      operationId: getBlock
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Block UUID
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Block details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BlockResponse'
+        '404':
+          description: Block not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/graph/entity/{id}:
+    get:
+      tags:
+        - Graph
+      summary: Get entity with relationships
+      description: Retrieve an entity and its neighbors up to specified depth
+      operationId: getEntity
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Entity UUID
+          schema:
+            type: string
+            format: uuid
+        - name: depth
+          in: query
+          description: Neighbor traversal depth
+          schema:
+            type: integer
+            default: 2
+      responses:
+        '200':
+          description: Entity with neighbors
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EntityResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          description: Entity not found
+
+  /api/graph/{id}:
+    get:
+      tags:
+        - Graph
+      summary: Get graph visualization data
+      description: Get subgraph for visualization with optional paths
+      operationId: getGraph
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Root entity UUID
+          schema:
+            type: string
+            format: uuid
+        - name: depth
+          in: query
+          description: Graph depth
+          schema:
+            type: integer
+            default: 3
+        - name: paths
+          in: query
+          description: Include all paths from entity
+          schema:
+            type: boolean
+            default: false
+      responses:
+        '200':
+          description: Graph data with nodes and edges
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GraphResponse'
+
+  /api/graph/path:
+    get:
+      tags:
+        - Graph
+      summary: Find path between entities
+      description: Find shortest path between two entities using BFS
+      operationId: findPath
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: from
+          in: query
+          required: true
+          description: Start entity UUID
+          schema:
+            type: string
+            format: uuid
+        - name: to
+          in: query
+          required: true
+          description: End entity UUID
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Path found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PathResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          description: No path found
+
+  /api/trace/{id}:
+    get:
+      tags:
+        - Traceability
+      summary: Trace product
+      description: Trace product through supply chain
+      operationId: traceProduct
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Product ID
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Product trace history
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TraceResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/trace/{qr}:
+    get:
+      tags:
+        - Traceability
+      summary: Trace by QR code
+      description: Public traceability endpoint for QR code scanning
+      operationId: traceByQR
+      parameters:
+        - name: qr
+          in: path
+          required: true
+          description: QR code value
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Product trace information
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/QRTraceResponse'
+
+  /api/provenance/{id}:
+    get:
+      tags:
+        - Traceability
+      summary: Get provenance
+      description: Get PROV-O provenance information for entity
+      operationId: getProvenance
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Entity UUID
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Provenance information
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProvenanceResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/timeline/{id}:
+    get:
+      tags:
+        - Traceability
+      summary: Get timeline
+      description: Get timeline visualization data for entity
+      operationId: getTimeline
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Entity UUID
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Timeline data
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TimelineResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/query:
+    post:
+      tags:
+        - Query
+      summary: Execute safe query
+      description: |
+        Execute pre-approved Datomic queries.
+        Only whitelisted query templates are allowed for security.
+      operationId: executeQuery
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/QueryRequest'
+      responses:
+        '200':
+          description: Query results
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/QueryResponse'
+        '400':
+          description: Invalid query format
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          description: Query not in whitelist
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/ontologies:
+    get:
+      tags:
+        - Ontology
+      summary: List ontologies
+      description: Get list of loaded ontologies
+      operationId: listOntologies
+      responses:
+        '200':
+          description: List of ontologies
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OntologyListResponse'
+
+  /api/ontologies/{id}:
+    get:
+      tags:
+        - Ontology
+      summary: Get ontology
+      description: Get ontology details by ID
+      operationId: getOntology
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Ontology UUID
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Ontology details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OntologyResponse'
+        '404':
+          description: Ontology not found
+
+  /api/permissions/check:
+    get:
+      tags:
+        - Permissions
+      summary: Check permission
+      description: Check if user has permission to access resource
+      operationId: checkPermission
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: resource-id
+          in: query
+          required: true
+          description: Resource UUID
+          schema:
+            type: string
+            format: uuid
+        - name: requestor-id
+          in: query
+          required: true
+          description: Requestor UUID
+          schema:
+            type: string
+            format: uuid
+        - name: action
+          in: query
+          description: Action to check (read, write, delete)
+          schema:
+            type: string
+            default: read
+      responses:
+        '200':
+          description: Permission check result
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PermissionResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/transactions/submit:
+    post:
+      tags:
+        - Transactions
+      summary: Submit transaction
+      description: Submit a transaction for cluster consensus
+      operationId: submitTransaction
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TransactionRequest'
+      responses:
+        '200':
+          description: Transaction submitted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TransactionResponse'
+        '503':
+          description: Cluster mode not enabled
+
+  /api/transactions/{id}/status:
+    get:
+      tags:
+        - Transactions
+      summary: Get transaction status
+      description: Get status of submitted transaction
+      operationId: getTransactionStatus
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Transaction/Proposal ID
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Transaction status
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TransactionStatusResponse'
+
+  /api/stats:
+    get:
+      tags:
+        - Health
+      summary: Get statistics
+      description: Get system statistics
+      operationId: getStats
+      responses:
+        '200':
+          description: System statistics
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StatsResponse'
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: JWT token obtained from authentication
+
+  responses:
+    Unauthorized:
+      description: Authentication required
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+
+  schemas:
+    HealthResponse:
+      type: object
+      required:
+        - status
+        - version
+      properties:
+        status:
+          type: string
+          example: healthy
+        version:
+          type: string
+          example: 1.1.0
+        timestamp:
+          type: string
+          format: date-time
+        phase:
+          type: string
+
+    Block:
+      type: object
+      properties:
+        block/number:
+          type: string
+        block/hash:
+          type: string
+        block/previous-hash:
+          type: string
+        block/timestamp:
+          type: string
+        block/miner:
+          type: string
+        block/nonce:
+          type: integer
+        block/transaction-count:
+          type: integer
+        block/size:
+          type: integer
+
+    BlockListResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          type: object
+          properties:
+            blocks:
+              type: array
+              items:
+                $ref: '#/components/schemas/Block'
+            pagination:
+              type: object
+              properties:
+                offset:
+                  type: integer
+                limit:
+                  type: integer
+                total:
+                  type: integer
+                count:
+                  type: integer
+
+    BlockResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          type: object
+          properties:
+            block/number:
+              type: string
+            block/hash:
+              type: string
+            block/transactions:
+              type: array
+
+    EntityResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          type: object
+          properties:
+            entity:
+              type: object
+            neighbors:
+              type: array
+            depth:
+              type: integer
+
+    GraphResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          type: object
+          properties:
+            nodes:
+              type: array
+              items:
+                type: object
+            edges:
+              type: array
+              items:
+                type: object
+            paths:
+              type: array
+              items:
+                type: array
+            depth:
+              type: integer
+
+    PathResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          type: object
+          properties:
+            path:
+              type: array
+              items:
+                type: string
+                format: uuid
+            length:
+              type: integer
+            from:
+              type: string
+              format: uuid
+            to:
+              type: string
+              format: uuid
+
+    TraceResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          type: object
+          properties:
+            product-id:
+              type: string
+            history:
+              type: array
+            events:
+              type: integer
+
+    QRTraceResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          type: object
+          properties:
+            product:
+              type: object
+            journey:
+              type: object
+            graph:
+              type: object
+
+    ProvenanceResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          type: object
+          properties:
+            entity-id:
+              type: string
+            provenance:
+              type: object
+
+    TimelineResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          type: object
+          properties:
+            entity-id:
+              type: string
+            timeline:
+              type: array
+            event-count:
+              type: integer
+
+    QueryRequest:
+      type: object
+      required:
+        - query
+      properties:
+        query:
+          type: object
+          description: Datalog query map or vector
+          example:
+            find: "?e"
+            where:
+              - ["?e", ":prov/entity", "?id"]
+
+    QueryResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          type: object
+          properties:
+            query:
+              type: object
+            results:
+              type: array
+            count:
+              type: integer
+            template-used:
+              type: string
+
+    OntologyListResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          type: object
+          properties:
+            ontologies:
+              type: array
+            count:
+              type: integer
+
+    OntologyResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          type: object
+          properties:
+            ontology-id:
+              type: string
+              format: uuid
+            name:
+              type: string
+            classes:
+              type: array
+            properties:
+              type: array
+
+    PermissionResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          type: object
+          properties:
+            resource-id:
+              type: string
+            requestor-id:
+              type: string
+            action:
+              type: string
+            allowed:
+              type: boolean
+
+    TransactionRequest:
+      type: object
+      required:
+        - entity-id
+        - entity-type
+      properties:
+        entity-id:
+          type: string
+          format: uuid
+          description: Entity UUID
+        entity-type:
+          type: string
+          description: Entity type keyword
+          example: product/batch
+        activity-type:
+          type: string
+          description: Activity type
+          example: supply-chain/transport
+        agent-id:
+          type: string
+          format: uuid
+          description: Agent UUID
+
+    TransactionResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          type: object
+          properties:
+            transaction-id:
+              type: string
+            status:
+              type: string
+              example: submitted
+            message:
+              type: string
+            timestamp:
+              type: string
+              format: date-time
+
+    TransactionStatusResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          type: object
+          properties:
+            transaction-id:
+              type: string
+            status:
+              type: string
+              enum: [pending, approved, rejected, timeout, not-found]
+            submitted-at:
+              type: string
+              format: date-time
+            vote-summary:
+              type: object
+              properties:
+                approve-count:
+                  type: integer
+                reject-count:
+                  type: integer
+                total-votes:
+                  type: integer
+                decision:
+                  type: string
+
+    StatsResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          type: object
+          properties:
+            knowledge-base:
+              type: object
+              properties:
+                total-entities:
+                  type: integer
+                total-activities:
+                  type: integer
+            timestamp:
+              type: string
+              format: date-time
+
+    ErrorResponse:
+      type: object
+      required:
+        - success
+        - error
+      properties:
+        success:
+          type: boolean
+          example: false
+        error:
+          type: string
+          example: Invalid request parameter
+        details:
+          type: object
+        timestamp:
+          type: string
+          format: date-time

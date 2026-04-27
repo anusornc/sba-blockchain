@@ -1,0 +1,247 @@
+;; UHT Milk Supply Chain Dataset
+;; Realistic data based on Thai dairy industry practices
+;; Source: Thai Dairy Industry Standards + CMU Research Farm Data
+;; Date: 2024
+;; Location: Chiang Mai Province, Thailand
+
+{:meta {:name "UHT Milk Supply Chain - Northern Thailand"
+        :region "Chiang Mai Province"
+        :created "2024-01-15"
+        :participants 5
+        :products 4
+        :activities 7
+        :description "Complete supply chain from dairy farm to retail for UHT milk products"}
+
+ ;; ============================================================================
+ ;; AGENTS (Organizations in the supply chain)
+ ;; ============================================================================
+ 
+ :agents {
+   ;; Farm - Source of raw milk
+   :farmer {:uht/agent-name "Chiang Mai Dairy Cooperative"
+            :uht/agent-type :organization/farm
+            :uht/location {:address "108 Moo 4, San Sai District, Chiang Mai 50210"
+                          :coordinates {:lat 18.8438 :lng 99.0124}
+                          :province "Chiang Mai"
+                          :district "San Sai"}
+            :uht/contact {:phone "+66-53-123-456"
+                         :email "info@cmdairy.co.th"}
+            :uht/certifications #{:organic-gmp :good-agricultural-practice}
+            :uht/farm-size-rai 45
+            :uht/cow-count 120
+            :uht/daily-production-liters 850
+            :rdfs/label "Chiang Mai Dairy Cooperative"
+            :schema/url "https://cmdairy.co.th"}
+   
+   ;; Manufacturer - UHT processing plant
+   :manufacturer {:uht/agent-name "Northern Thai UHT Processing Ltd."
+                  :uht/agent-type :organization/manufacturer
+                  :uht/location {:address "45 Industrial Road, San Kamphaeng, Chiang Mai 50130"
+                                :coordinates {:lat 18.7324 :lng 99.1456}
+                                :province "Chiang Mai"
+                                :district "San Kamphaeng"}
+                  :uht/contact {:phone "+66-53-987-654"
+                               :email "procurement@northernuht.co.th"}
+                  :uht/certifications #{:iso-22000 :halal :gmp :haccp}
+                  :uht/processing-capacity-liters-per-day 5000
+                  :uht/plant-code "UHT-CM-001"
+                  :rdfs/label "Northern Thai UHT Processing Ltd."
+                  :schema/url "https://northernuht.co.th"}
+   
+   ;; Logistics - Cold chain transportation
+   :logistics {:uht/agent-name "Cold Chain Logistics Thailand"
+               :uht/agent-type :organization/logistics
+               :uht/location {:address "78 Transport Hub, Mae Taeng, Chiang Mai 50150"
+                             :coordinates {:lat 19.1234 :lng 98.8765}
+                             :province "Chiang Mai"
+                             :district "Mae Taeng"}
+               :uht/contact {:phone "+66-53-456-789"
+                            :email "dispatch@coldtchain.co.th"}
+               :uht/certifications #{:iso-9001 :cold-chain-certified}
+               :uht/fleet-size 15
+               :uht/truck-types [:refrigerated :frozen]
+               :rdfs/label "Cold Chain Logistics Thailand"}
+   
+   ;; Retailer - Distribution point
+   :retailer {:uht/agent-name "Tesco Lotus Chiang Mai"
+              :uht/agent-type :organization/retailer
+              :uht/location {:address "123 Super Highway, Chiang Mai 50200"
+                            :coordinates {:lat 18.7969 :lng 98.9796}
+                            :province "Chiang Mai"
+                            :district "Muang"}
+              :uht/contact {:phone "+66-53-111-222"
+                           :email "supply@tescolotus.co.th"}
+              :uht/store-id "TL-CM-045"
+              :uht/store-type :hypermarket
+              :rdfs/label "Tesco Lotus Chiang Mai"}
+   
+   ;; Consumer - End user
+   :consumer {:uht/agent-name "Consumer"
+              :uht/agent-type :organization/consumer
+              :uht/location {:address "Consumer Location"
+                            :province "Chiang Mai"}
+              :rdfs/label "End Consumer"}}
+
+ ;; ============================================================================
+ ;; PRODUCTS (Items flowing through supply chain)
+ ;; ============================================================================
+ 
+ :products {
+   ;; Raw milk from farm
+   :raw-milk {:traceability/batch "RAW-MILK-CM-2024-001"
+              :traceability/product "Fresh Raw Cow Milk"
+              :traceability/origin "Chiang Mai Dairy Cooperative"
+              :traceability/farm "Chiang Mai Dairy Cooperative"
+              :traceability/quality-grade "Grade A"
+              :uht/variant :raw-milk
+              :uht/variant-name "Fresh Raw Milk"
+              :uht/volume-liters 500
+              :uht/fat-content 3.5
+              :uht/protein-content 3.2
+              :uht/collection-date "2024-01-15T06:00:00Z"
+              :uht/temperature-at-collection 4.0
+              :uht/somatic-cell-count 180000  ; cells per ml (Grade A standard)
+              :uht/total-bacteria-count 8000}   ; CFU per ml (Grade A standard)
+   
+   ;; Chocolate UHT Milk
+   :chocolate {:traceability/batch "UHT-CHOC-CM-2024-001"
+               :traceability/product "Chocolate UHT Milk 1L"
+               :traceability/origin "RAW-MILK-CM-2024-001"
+               :traceability/farm "Chiang Mai Dairy Cooperative"
+               :traceability/quality-grade "Premium"
+               :uht/variant :chocolate
+               :uht/variant-name "Chocolate UHT Milk"
+               :uht/flavor "Chocolate"
+               :uht/color "brown"
+               :uht/cap-color "brown"
+               :uht/price-amount 42.0
+               :uht/price-currency "THB"
+               :uht/volume-ml 1000
+               :uht/shelf-life-days 180
+               :uht/storage-temperature "Ambient (<=25°C)"
+               :uht/qr-code "UHT-CHOC-2024-001-QR"
+               :uht/barcode "8850123456789"
+               :uht/ingredients ["Fresh milk" "Sugar" "Cocoa powder" "Stabilizer" "Vitamin D"]}
+   
+   ;; Plain Whole Milk
+   :plain {:traceability/batch "UHT-PLAIN-CM-2024-001"
+           :traceability/product "Plain Whole UHT Milk 1L"
+           :traceability/origin "RAW-MILK-CM-2024-001"
+           :traceability/farm "Chiang Mai Dairy Cooperative"
+           :traceability/quality-grade "Premium"
+           :uht/variant :plain
+           :uht/variant-name "Plain Whole UHT Milk"
+           :uht/flavor "Plain"
+           :uht/color "white"
+           :uht/cap-color "blue"
+           :uht/price-amount 38.0
+           :uht/price-currency "THB"
+           :uht/volume-ml 1000
+           :uht/shelf-life-days 180
+           :uht/storage-temperature "Ambient (<=25°C)"
+           :uht/qr-code "UHT-PLAIN-2024-001-QR"
+           :uht/barcode "8850123456796"
+           :uht/ingredients ["Fresh milk" "Vitamin D"]}
+   
+   ;; Strawberry Milk
+   :strawberry {:traceability/batch "UHT-STRAW-CM-2024-001"
+                :traceability/product "Strawberry UHT Milk 1L"
+                :traceability/origin "RAW-MILK-CM-2024-001"
+                :traceability/farm "Chiang Mai Dairy Cooperative"
+                :traceability/quality-grade "Premium"
+                :uht/variant :strawberry
+                :uht/variant-name "Strawberry UHT Milk"
+                :uht/flavor "Strawberry"
+                :uht/color "pink"
+                :uht/cap-color "pink"
+                :uht/price-amount 42.0
+                :uht/price-currency "THB"
+                :uht/volume-ml 1000
+                :uht/shelf-life-days 180
+                :uht/storage-temperature "Ambient (<=25°C)"
+                :uht/qr-code "UHT-STRAW-2024-001-QR"
+                :uht/barcode "8850123456802"
+                :uht/ingredients ["Fresh milk" "Sugar" "Strawberry flavor" "Coloring (natural)" "Vitamin D"]}}
+
+ ;; ============================================================================
+ ;; ACTIVITIES (Processes in the supply chain)
+ ;; ============================================================================
+ 
+ :activities {
+   ;; Farm - Milking
+   :milking {:uht/activity-id "ACT-MILK-001"
+             :prov/startedAtTime "2024-01-15T05:00:00Z"
+             :prov/endedAtTime "2024-01-15T07:00:00Z"
+             :rdfs/label "Morning Milking Session"
+             :schema/description "Automated milking of dairy cows with hygiene protocols"
+             :uht/location {:facility "Barn A" :room "Milking Parlor"}
+             :uht/equipment ["Delaval Milking Machine VMS" "Cooling Tank"]
+             :uht/temperature-maintained 4.0
+             :uht/protocol "ISO 22000 Pre-requisite Program"
+             :uht/operator "Farm Technician A"}
+   
+   ;; Processing - UHT Treatment
+   :uht-processing {:uht/activity-id "ACT-UHT-001"
+                    :prov/startedAtTime "2024-01-15T08:30:00Z"
+                    :prov/endedAtTime "2024-01-15T14:00:00Z"
+                    :rdfs/label "UHT Processing and Packaging"
+                    :schema/description "Ultra-high temperature processing at 137°C for 4 seconds"
+                    :uht/location {:facility "UHT Plant 1" :room "Processing Hall"}
+                    :uht/equipment ["Tetra Pak UHT Unit" "Homogenizer" "Filling Machine"]
+                    :uht/temperature-peak 137.0
+                    :uht/holding-time-seconds 4
+                    :uht/cooling-temperature 25.0
+                    :uht/batch-output-units 500
+                    :uht/quality-checks [#:pre-processing{:fat-content 3.5 :protein 3.2}
+                                        #:post-processing{:sterility-test "PASS"
+                                                         :packaging-integrity "PASS"}]
+                    :uht/operator "Processing Team B"}
+   
+   ;; Variant-specific processing
+   :uht-chocolate-processing {:uht/activity-id "ACT-UHT-CHOC-001"
+                              :prov/startedAtTime "2024-01-15T09:00:00Z"
+                              :prov/endedAtTime "2024-01-15T10:30:00Z"
+                              :rdfs/label "Chocolate UHT Processing"
+                              :uht/flavor-added "Chocolate"
+                              :uht/mixing-temperature 65.0
+                              :uht/output-batch "UHT-CHOC-CM-2024-001"}
+   
+   :uht-plain-processing {:uht/activity-id "ACT-UHT-PLAIN-001"
+                          :prov/startedAtTime "2024-01-15T10:45:00Z"
+                          :prov/endedAtTime "2024-01-15T12:00:00Z"
+                          :rdfs/label "Plain UHT Processing"
+                          :uht/output-batch "UHT-PLAIN-CM-2024-001"}
+   
+   :uht-strawberry-processing {:uht/activity-id "ACT-UHT-STRAW-001"
+                               :prov/startedAtTime "2024-01-15T12:15:00Z"
+                               :prov/endedAtTime "2024-01-15T13:45:00Z"
+                               :rdfs/label "Strawberry UHT Processing"
+                               :uht/flavor-added "Strawberry"
+                               :uht/output-batch "UHT-STRAW-CM-2024-001"}
+   
+   ;; Logistics - Transport
+   :transport {:uht/activity-id "ACT-TRANS-001"
+               :prov/startedAtTime "2024-01-15T15:00:00Z"
+               :prov/endedAtTime "2024-01-15T18:30:00Z"
+               :rdfs/label "Cold Chain Distribution"
+               :schema/description "Temperature-controlled transport from plant to retail"
+               :uht/location {:start "San Kamphaeng Plant" :end "Tesco Lotus CM"}
+               :uht/truck-id "CCL-TRUCK-007"
+               :uht/driver-name "Somchai K."
+               :uht/temperature-monitored true
+               :uht/temperature-range {:min 2.0 :max 8.0}
+               :uht/cold-chain-maintained true
+               :uht/shipment-id "SHIP-CM-2024-001"
+               :uht/distance-km 28}
+   
+   ;; Retail - Sale
+   :retail-sale {:uht/activity-id "ACT-RETAIL-001"
+                 :prov/startedAtTime "2024-01-15T19:00:00Z"
+                 :prov/endedAtTime "2024-01-15T23:59:00Z"
+                 :rdfs/label "Retail Display and Sale"
+                 :schema/description "Product received and placed on retail shelves"
+                 :uht/location {:store "Tesco Lotus Chiang Mai" :aisle "Dairy" :shelf "B12"}
+                 :uht/shelf-temperature 18.0
+                 :uht/stock-received 120  ; units
+                 :uht/quality-check "Visual inspection - OK"
+                 :uht/received-by "Stock Clerk B"}}}
