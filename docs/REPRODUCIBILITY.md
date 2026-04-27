@@ -6,6 +6,9 @@ The public repository excludes private paper build artifacts and private run
 notes. If you rerun benchmarks, keep raw CSV files, summary CSV files, and a
 manifest recording command, environment, timestamp, and commit hash.
 
+For repo-local prerequisites, run `source scripts/dev-env.bash` before starting
+services or Clojure commands.
+
 Query harness:
 
 ```bash

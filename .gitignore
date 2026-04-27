@@ -6,6 +6,9 @@ target/
 out/
 node_modules/
 resources/public/js/
+.tools/
+.home/
+.codex
 *.log
 *.class
 *.jar

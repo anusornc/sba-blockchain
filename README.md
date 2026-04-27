@@ -20,19 +20,20 @@ private repository history.
 
 ## Datomic Dependency Notice
 
-The original research prototype uses Datomic Pro. Datomic Pro artifacts are
-not redistributed in this public repository. To run the full system, provide
-your own licensed Datomic dependency according to Datomic's terms and place it
-outside version control.
+This public companion resolves `com.datomic/peer` from Maven Central for local
+tests and demo use. If you run a full Datomic Pro transactor or external
+storage setup, follow Datomic's deployment documentation and keep generated
+runtime state outside version control.
 
 ## Run Tests
 
 ```bash
-clj -M:test
+source scripts/dev-env.bash
+clojure -M:test
 ```
 
-If dependency resolution fails because Datomic Pro is unavailable, install or
-configure Datomic locally first.
+Use `clojure` for non-interactive commands. The `clj` wrapper also works when
+`rlwrap` is installed.
 
 ## Reproducibility
 
