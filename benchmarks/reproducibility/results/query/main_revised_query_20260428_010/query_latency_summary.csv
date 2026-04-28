@@ -1,0 +1,5 @@
+query,ok_count,error_count,mean_ms,p50_ms,p95_ms,p99_ms,min_ms,max_ms
+q1_trace_qr,100,0,2.011,2.011,2.398,3.152,1.258,3.701
+q2_batch_lookup,100,0,4.159,4.403,5.124,7.888,2.536,8.817
+q3_prov_entities,100,0,3.384,3.450,3.756,4.335,2.309,5.087
+q4_prov_activities,100,0,3.878,3.984,4.239,4.800,2.323,13.775

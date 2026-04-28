@@ -12,7 +12,10 @@ distribution.
 Bundled selected artifacts:
 
 ```text
+benchmarks/reproducibility/results/query/main_revised_query_20260428_009/
+benchmarks/reproducibility/results/query/main_revised_query_20260428_010/
 benchmarks/reproducibility/results/query/main_revised_query_20260428_011/
+benchmarks/reproducibility/results/query/query_rerun_summary_20260428.md
 benchmarks/reproducibility/results/fabric/main_revised_fabric_20260428_002/
 ```
 
@@ -26,6 +29,13 @@ Query harness:
 ```bash
 API_TOKEN="<valid-jwt>" REPS=100 WARMUP=30 \
   bash benchmarks/reproducibility/query/run_query_harness.bash
+```
+
+Summarize the bundled repeated query runs:
+
+```bash
+python3 benchmarks/reproducibility/query/summarize_query_reruns.py \
+  --results-dir benchmarks/reproducibility/results/query
 ```
 
 Default output path:

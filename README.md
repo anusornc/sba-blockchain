@@ -17,6 +17,7 @@ private repository history.
 - `resources/datasets/uht-supply-chain/data.edn` - public sample dataset
 - `resources/openapi/api.yaml` - API description
 - `benchmarks/reproducibility/` - public benchmark harnesses
+- `docs/LIMITATIONS.md` - evidence boundaries and production-readiness gaps
 
 ## Datomic Dependency Notice
 
