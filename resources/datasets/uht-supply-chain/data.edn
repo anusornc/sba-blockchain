@@ -1,16 +1,16 @@
 ;; UHT Milk Supply Chain Dataset
-;; Realistic data based on Thai dairy industry practices
-;; Source: Thai Dairy Industry Standards + CMU Research Farm Data
+;; Synthetic public-safe data inspired by dairy traceability workflows
+;; Source: Synthetic example data; no real organization, address, phone, or email
 ;; Date: 2024
-;; Location: Chiang Mai Province, Thailand
+;; Location: Example Province
 
-{:meta {:name "UHT Milk Supply Chain - Northern Thailand"
-        :region "Chiang Mai Province"
+{:meta {:name "Synthetic UHT Milk Supply Chain"
+        :region "Example Province"
         :created "2024-01-15"
         :participants 5
         :products 4
         :activities 7
-        :description "Complete supply chain from dairy farm to retail for UHT milk products"}
+        :description "Synthetic supply chain from dairy farm to retail for UHT milk products"}
 
  ;; ============================================================================
  ;; AGENTS (Organizations in the supply chain)
@@ -18,68 +18,68 @@
  
  :agents {
    ;; Farm - Source of raw milk
-   :farmer {:uht/agent-name "Chiang Mai Dairy Cooperative"
+   :farmer {:uht/agent-name "Example Highland Dairy Cooperative"
             :uht/agent-type :organization/farm
-            :uht/location {:address "108 Moo 4, San Sai District, Chiang Mai 50210"
+            :uht/location {:address "100 Example Farm Road, Example District 50000"
                           :coordinates {:lat 18.8438 :lng 99.0124}
-                          :province "Chiang Mai"
-                          :district "San Sai"}
-            :uht/contact {:phone "+66-53-123-456"
-                         :email "info@cmdairy.co.th"}
+                          :province "Example Province"
+                          :district "Example Farm District"}
+            :uht/contact {:phone "+66-2-000-0001"
+                         :email "farm@example.org"}
             :uht/certifications #{:organic-gmp :good-agricultural-practice}
             :uht/farm-size-rai 45
             :uht/cow-count 120
             :uht/daily-production-liters 850
-            :rdfs/label "Chiang Mai Dairy Cooperative"
-            :schema/url "https://cmdairy.co.th"}
+            :rdfs/label "Example Highland Dairy Cooperative"
+            :schema/url "https://example.org/highland-dairy"}
    
    ;; Manufacturer - UHT processing plant
-   :manufacturer {:uht/agent-name "Northern Thai UHT Processing Ltd."
+   :manufacturer {:uht/agent-name "Example UHT Processing Ltd."
                   :uht/agent-type :organization/manufacturer
-                  :uht/location {:address "45 Industrial Road, San Kamphaeng, Chiang Mai 50130"
+                  :uht/location {:address "200 Example Industrial Road, Example District 50001"
                                 :coordinates {:lat 18.7324 :lng 99.1456}
-                                :province "Chiang Mai"
-                                :district "San Kamphaeng"}
-                  :uht/contact {:phone "+66-53-987-654"
-                               :email "procurement@northernuht.co.th"}
+                                :province "Example Province"
+                                :district "Example Processing District"}
+                  :uht/contact {:phone "+66-2-000-0002"
+                               :email "processing@example.org"}
                   :uht/certifications #{:iso-22000 :halal :gmp :haccp}
                   :uht/processing-capacity-liters-per-day 5000
                   :uht/plant-code "UHT-CM-001"
-                  :rdfs/label "Northern Thai UHT Processing Ltd."
-                  :schema/url "https://northernuht.co.th"}
+                  :rdfs/label "Example UHT Processing Ltd."
+                  :schema/url "https://example.org/uht-processing"}
    
    ;; Logistics - Cold chain transportation
-   :logistics {:uht/agent-name "Cold Chain Logistics Thailand"
+   :logistics {:uht/agent-name "Example Cold Chain Logistics"
                :uht/agent-type :organization/logistics
-               :uht/location {:address "78 Transport Hub, Mae Taeng, Chiang Mai 50150"
+               :uht/location {:address "300 Example Logistics Park, Example District 50002"
                              :coordinates {:lat 19.1234 :lng 98.8765}
-                             :province "Chiang Mai"
-                             :district "Mae Taeng"}
-               :uht/contact {:phone "+66-53-456-789"
-                            :email "dispatch@coldtchain.co.th"}
+                             :province "Example Province"
+                             :district "Example Logistics District"}
+               :uht/contact {:phone "+66-2-000-0003"
+                            :email "dispatch@example.org"}
                :uht/certifications #{:iso-9001 :cold-chain-certified}
                :uht/fleet-size 15
                :uht/truck-types [:refrigerated :frozen]
-               :rdfs/label "Cold Chain Logistics Thailand"}
+               :rdfs/label "Example Cold Chain Logistics"}
    
    ;; Retailer - Distribution point
-   :retailer {:uht/agent-name "Tesco Lotus Chiang Mai"
+   :retailer {:uht/agent-name "Example Retail Market"
               :uht/agent-type :organization/retailer
-              :uht/location {:address "123 Super Highway, Chiang Mai 50200"
+              :uht/location {:address "400 Example Retail Avenue, Example City 50003"
                             :coordinates {:lat 18.7969 :lng 98.9796}
-                            :province "Chiang Mai"
-                            :district "Muang"}
-              :uht/contact {:phone "+66-53-111-222"
-                           :email "supply@tescolotus.co.th"}
+                            :province "Example Province"
+                            :district "Example City"}
+              :uht/contact {:phone "+66-2-000-0004"
+                           :email "retail@example.org"}
               :uht/store-id "TL-CM-045"
               :uht/store-type :hypermarket
-              :rdfs/label "Tesco Lotus Chiang Mai"}
+              :rdfs/label "Example Retail Market"}
    
    ;; Consumer - End user
    :consumer {:uht/agent-name "Consumer"
               :uht/agent-type :organization/consumer
               :uht/location {:address "Consumer Location"
-                            :province "Chiang Mai"}
+                            :province "Example Province"}
               :rdfs/label "End Consumer"}}
 
  ;; ============================================================================
@@ -90,8 +90,8 @@
    ;; Raw milk from farm
    :raw-milk {:traceability/batch "RAW-MILK-CM-2024-001"
               :traceability/product "Fresh Raw Cow Milk"
-              :traceability/origin "Chiang Mai Dairy Cooperative"
-              :traceability/farm "Chiang Mai Dairy Cooperative"
+              :traceability/origin "Example Highland Dairy Cooperative"
+              :traceability/farm "Example Highland Dairy Cooperative"
               :traceability/quality-grade "Grade A"
               :uht/variant :raw-milk
               :uht/variant-name "Fresh Raw Milk"
@@ -107,7 +107,7 @@
    :chocolate {:traceability/batch "UHT-CHOC-CM-2024-001"
                :traceability/product "Chocolate UHT Milk 1L"
                :traceability/origin "RAW-MILK-CM-2024-001"
-               :traceability/farm "Chiang Mai Dairy Cooperative"
+               :traceability/farm "Example Highland Dairy Cooperative"
                :traceability/quality-grade "Premium"
                :uht/variant :chocolate
                :uht/variant-name "Chocolate UHT Milk"
@@ -127,7 +127,7 @@
    :plain {:traceability/batch "UHT-PLAIN-CM-2024-001"
            :traceability/product "Plain Whole UHT Milk 1L"
            :traceability/origin "RAW-MILK-CM-2024-001"
-           :traceability/farm "Chiang Mai Dairy Cooperative"
+           :traceability/farm "Example Highland Dairy Cooperative"
            :traceability/quality-grade "Premium"
            :uht/variant :plain
            :uht/variant-name "Plain Whole UHT Milk"
@@ -147,7 +147,7 @@
    :strawberry {:traceability/batch "UHT-STRAW-CM-2024-001"
                 :traceability/product "Strawberry UHT Milk 1L"
                 :traceability/origin "RAW-MILK-CM-2024-001"
-                :traceability/farm "Chiang Mai Dairy Cooperative"
+                :traceability/farm "Example Highland Dairy Cooperative"
                 :traceability/quality-grade "Premium"
                 :uht/variant :strawberry
                 :uht/variant-name "Strawberry UHT Milk"
@@ -223,9 +223,9 @@
    :transport {:uht/activity-id "ACT-TRANS-001"
                :prov/startedAtTime "2024-01-15T15:00:00Z"
                :prov/endedAtTime "2024-01-15T18:30:00Z"
-               :rdfs/label "Cold Chain Distribution"
+               :rdfs/label "Synthetic Cold Chain Distribution"
                :schema/description "Temperature-controlled transport from plant to retail"
-               :uht/location {:start "San Kamphaeng Plant" :end "Tesco Lotus CM"}
+               :uht/location {:start "Example UHT Plant" :end "Example Retail Market"}
                :uht/truck-id "CCL-TRUCK-007"
                :uht/driver-name "Somchai K."
                :uht/temperature-monitored true
@@ -240,7 +240,7 @@
                  :prov/endedAtTime "2024-01-15T23:59:00Z"
                  :rdfs/label "Retail Display and Sale"
                  :schema/description "Product received and placed on retail shelves"
-                 :uht/location {:store "Tesco Lotus Chiang Mai" :aisle "Dairy" :shelf "B12"}
+                 :uht/location {:store "Example Retail Market" :aisle "Dairy" :shelf "B12"}
                  :uht/shelf-temperature 18.0
                  :uht/stock-received 120  ; units
                  :uht/quality-check "Visual inspection - OK"

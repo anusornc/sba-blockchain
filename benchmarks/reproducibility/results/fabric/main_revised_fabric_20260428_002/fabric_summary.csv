@@ -1,0 +1,3 @@
+metric,ok_count,error_count,mean_ms,p50_ms,p95_ms,p99_ms,min_ms,max_ms,mean_rate
+fabric_write_invoke,50,0,109.800,90,300,331,77,331,8.6311
+fabric_read_query,50,0,74.680,72,79,176,67,176,12.4378

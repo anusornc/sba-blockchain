@@ -7,6 +7,8 @@ TESTNET_DIR_DEFAULT="${ROOT_DIR}/benchmarks/practical/fabric/fabric-samples/test
 TESTNET_DIR="${TESTNET_DIR:-${TESTNET_DIR_DEFAULT}}"
 CHANNEL_NAME="${CHANNEL_NAME:-benchmark-channel}"
 CHAINCODE_NAME="${CHAINCODE_NAME:-benchmark}"
+CHAINCODE_MODE="${CHAINCODE_MODE:-standard}"
+ASSET_PREFIX="${ASSET_PREFIX:-${RUN_ID//[^[:alnum:]_]/_}}"
 REPS="${REPS:-50}"
 WARMUP="${WARMUP:-5}"
 WARMUP_SLEEP_SECS="${WARMUP_SLEEP_SECS:-0.5}"
@@ -30,6 +32,8 @@ echo "timestamp_utc=$(date -u +"%Y-%m-%dT%H:%M:%SZ")" >> "${MANIFEST}"
 echo "testnet_dir=${TESTNET_DIR}" >> "${MANIFEST}"
 echo "channel_name=${CHANNEL_NAME}" >> "${MANIFEST}"
 echo "chaincode_name=${CHAINCODE_NAME}" >> "${MANIFEST}"
+echo "chaincode_mode=${CHAINCODE_MODE}" >> "${MANIFEST}"
+echo "asset_prefix=${ASSET_PREFIX}" >> "${MANIFEST}"
 echo "reps=${REPS}" >> "${MANIFEST}"
 echo "warmup=${WARMUP}" >> "${MANIFEST}"
 echo "warmup_sleep_secs=${WARMUP_SLEEP_SECS}" >> "${MANIFEST}"
@@ -91,7 +95,7 @@ query_asset() {
 
 echo "Warmup invoke (${WARMUP})..."
 for i in $(seq 1 "${WARMUP}"); do
-  invoke_create_asset "warmup_${i}" "warmup" "$((RANDOM % 1000))" >/dev/null 2>&1 || true
+  invoke_create_asset "${ASSET_PREFIX}_warmup_${i}" "warmup" "$((RANDOM % 1000))" >/dev/null 2>&1 || true
   sleep "${WARMUP_SLEEP_SECS}"
 done
 
@@ -99,7 +103,7 @@ echo "Measured write invoke (${REPS})..."
 write_phase_start_ns="$(date +%s%N)"
 for i in $(seq 1 "${REPS}"); do
   start_ns="$(date +%s%N)"
-  if output="$(invoke_create_asset "asset_${i}" "owner_${i}" "$((RANDOM % 1000))" 2>&1)"; then
+  if output="$(invoke_create_asset "${ASSET_PREFIX}_asset_${i}" "owner_${i}" "$((RANDOM % 1000))" 2>&1)"; then
     success=1
     if ! echo "${output}" | grep -q "Chaincode invoke successful"; then
       success=0
@@ -127,7 +131,7 @@ read_phase_start_ns="$(date +%s%N)"
 for i in $(seq 1 "${REPS}"); do
   idx=$(( (i % REPS) + 1 ))
   start_ns="$(date +%s%N)"
-  if query_asset "asset_${idx}" >/dev/null 2>&1; then
+  if query_asset "${ASSET_PREFIX}_asset_${idx}" >/dev/null 2>&1; then
     success=1
   else
     success=0

@@ -1,0 +1,14 @@
+run_id=main_revised_fabric_20260428_002
+timestamp_utc=2026-04-28T08:28:56Z
+testnet_dir=<source-root>/benchmarks/practical/fabric/fabric-samples/test-network
+channel_name=benchmark-channel
+chaincode_name=benchmark
+chaincode_mode=ccaas
+asset_prefix=main_revised_fabric_20260428_002
+reps=50
+warmup=5
+warmup_sleep_secs=0.5
+measure_sleep_secs=0
+git_commit=6c8feaccb6782b203d173ca9fa05a6dc27e6c33f
+write_total_ms=5793
+read_total_ms=4020

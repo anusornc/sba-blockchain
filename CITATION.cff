@@ -1,4 +1,11 @@
 cff-version: 1.2.0
 title: "Semantic Blockchain Architecture"
 message: "If you use this software, please cite the associated paper."
+authors:
+  - family-names: "Chaikaew"
+    given-names: "Anusorn"
+  - family-names: "Chouvatut"
+    given-names: "Varin"
+  - family-names: "Boonchieng"
+    given-names: "Ekkarat"
 repository-code: "https://github.com/anusornc/sba-blockchain"
