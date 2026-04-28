@@ -39,6 +39,11 @@ echo "warmup=${WARMUP}" >> "${MANIFEST}"
 echo "warmup_sleep_secs=${WARMUP_SLEEP_SECS}" >> "${MANIFEST}"
 echo "measure_sleep_secs=${MEASURE_SLEEP_SECS}" >> "${MANIFEST}"
 echo "git_commit=$(git -C "${ROOT_DIR}" rev-parse HEAD 2>/dev/null || echo unknown)" >> "${MANIFEST}"
+if git -C "${ROOT_DIR}" diff --quiet 2>/dev/null && git -C "${ROOT_DIR}" diff --cached --quiet 2>/dev/null; then
+  echo "git_dirty=false" >> "${MANIFEST}"
+else
+  echo "git_dirty=true" >> "${MANIFEST}"
+fi
 
 if [[ ! -d "${TESTNET_DIR}" ]]; then
   echo "Fabric test-network not found: ${TESTNET_DIR}" >&2

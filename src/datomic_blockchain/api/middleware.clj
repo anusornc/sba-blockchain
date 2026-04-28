@@ -40,7 +40,7 @@
       ;; Test mode: use test secret if JWT_SECRET not set
       (and test-mode? (nil? secret))
       (do
-        (log/debug "Test mode: using test JWT secret")
+        (log/trace "Test mode: using test JWT secret")
         "test-jwt-secret-for-unit-testing-purposes-only-min-64-chars-long")
 
       ;; No secret set - FAIL FAST in production
@@ -62,7 +62,7 @@
       ;; Valid secret
       :else
       (do
-        (log/debug "JWT_SECRET loaded successfully (length:" (count secret) "characters)")
+        (log/trace "JWT_SECRET loaded successfully (length:" (count secret) "characters)")
         secret))))
 
 ;; Allowed CORS origins - SECURITY: In production, set via ALLOWED_ORIGINS env var
@@ -139,11 +139,11 @@
   "Log incoming requests (without sensitive data)"
   [handler]
   (fn [request]
-    (log/info "API Request:"
-              (:request-method request)
-              (:uri request)
-              ;; Don't log full params to avoid logging sensitive data
-              (select-keys (:params request) [:page :per-page :id]))
+    (log/trace "API Request:"
+               (:request-method request)
+               (:uri request)
+               ;; Don't log full params to avoid logging sensitive data
+               (select-keys (:params request) [:page :per-page :id]))
     (handler request)))
 
 (defn wrap-log-response
@@ -151,7 +151,7 @@
   [handler]
   (fn [request]
     (let [response (handler request)]
-      (log/info "API Response:" (:status response))
+      (log/trace "API Response:" (:status response))
       response)))
 
 ;; ============================================================================

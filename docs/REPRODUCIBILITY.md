@@ -12,7 +12,7 @@ distribution.
 Bundled selected artifacts:
 
 ```text
-benchmarks/reproducibility/results/query/main_revised_query_20260428_002/
+benchmarks/reproducibility/results/query/main_revised_query_20260428_011/
 benchmarks/reproducibility/results/fabric/main_revised_fabric_20260428_002/
 ```
 
@@ -24,7 +24,7 @@ before running the query harness. The `/api/query` calls require a valid JWT in
 Query harness:
 
 ```bash
-API_TOKEN="<valid-jwt>" REPS=100 WARMUP=10 \
+API_TOKEN="<valid-jwt>" REPS=100 WARMUP=30 \
   bash benchmarks/reproducibility/query/run_query_harness.bash
 ```
 

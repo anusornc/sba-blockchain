@@ -4,7 +4,7 @@ set -euo pipefail
 API_BASE_URL="${API_BASE_URL:-http://localhost:3000}"
 API_TOKEN="${API_TOKEN:-}"
 REPS="${REPS:-100}"
-WARMUP="${WARMUP:-10}"
+WARMUP="${WARMUP:-30}"
 QR_CODE="${QR_CODE:-UHT-CHOC-2024-001-QR}"
 BATCH_ID="${BATCH_ID:-UHT-CHOC-CM-2024-001}"
 ENTITY_ID="${ENTITY_ID:-}"
@@ -28,6 +28,11 @@ echo "batch_id=${BATCH_ID}" >> "${MANIFEST}"
 echo "entity_id=${ENTITY_ID}" >> "${MANIFEST}"
 echo "activity_id=${ACTIVITY_ID}" >> "${MANIFEST}"
 echo "git_commit=$(git rev-parse HEAD 2>/dev/null || echo unknown)" >> "${MANIFEST}"
+if git diff --quiet 2>/dev/null && git diff --cached --quiet 2>/dev/null; then
+  echo "git_dirty=false" >> "${MANIFEST}"
+else
+  echo "git_dirty=true" >> "${MANIFEST}"
+fi
 echo "semantic_validation=enabled" >> "${MANIFEST}"
 
 if [[ -z "${API_TOKEN}" ]]; then

@@ -261,7 +261,8 @@
    3. No arbitrary code execution - queries are data structures, not code"
   [request connection]
   (let [raw-query (extract-query request)
-        query-params (when raw-query (symbolize-query raw-query))]
+        query-params (when raw-query (symbolize-query raw-query))
+        whitelist-check (when query-params (query-allowed? query-params))]
 
     (cond
       ;; Missing query
@@ -269,15 +270,15 @@
       (common/validation-error "Missing query parameter" {:param :query})
 
       ;; Query not in whitelist
-      (not (:allowed (query-allowed? query-params)))
-      (let [whitelist-check (query-allowed? query-params)]
+      (not (:allowed whitelist-check))
+      (do
         (log/warn "Query not in whitelist blocked:"
                   (:matched-template whitelist-check)
                   "Query:" query-params)
         (common/error
-         (str "Query not allowed. Only pre-approved query templates are permitted.")
-         403
-         {:matched-template (:matched-template whitelist-check)}))
+          (str "Query not allowed. Only pre-approved query templates are permitted.")
+          403
+          {:matched-template (:matched-template whitelist-check)}))
 
       ;; Invalid query structure
       (not (valid-query-structure? query-params))
@@ -291,14 +292,14 @@
                                    map-query-to-vector
                                    coerce-query-literals)
               results (d/q executable-query db)
-              whitelist-check (query-allowed? query-params)]
-          (log/info "Query executed successfully:"
-                    (:matched-template whitelist-check)
-                    "Results:" (count results))
+              result-count (count results)]
+          (log/trace "Query executed successfully:"
+                     (:matched-template whitelist-check)
+                     "Results:" result-count)
           (common/success
            {:query (format-query-response query-params)
             :results (vec results)
-            :count (count results)
+            :count result-count
             :template-used (:matched-template whitelist-check)}))
         (catch Exception e
           (log/error "Query execution error:" (.getMessage e) "Query:" (pr-str query-params))

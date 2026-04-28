@@ -12,6 +12,16 @@
 ;; Dataset Loading
 ;; ============================================================================
 
+(defonce ^:private dataset-cache (atom {}))
+
+(defn clear-dataset-cache!
+  "Clear the in-process EDN dataset cache.
+
+   Useful for tests or long-running development sessions after editing the
+   canonical dataset file."
+  []
+  (reset! dataset-cache {}))
+
 (defn load-dataset
   "Load the UHT milk supply chain dataset from EDN file
 
@@ -22,13 +32,16 @@
   ([]
    (load-dataset "resources/datasets/uht-supply-chain/data.edn"))
   ([file-path]
-   (log/info "Loading dataset from:" file-path)
-   (let [data (edn/read-string (slurp file-path))]
-     (log/info "Dataset loaded:"
-               (count (:agents data)) "agents,"
-               (count (:products data)) "products,"
-               (count (:activities data)) "activities")
-     data)))
+   (if-let [cached (get @dataset-cache file-path)]
+     cached
+     (let [data (do
+                  (log/info "Loading dataset from:" file-path)
+                  (edn/read-string (slurp file-path)))]
+       (log/info "Dataset loaded:"
+                 (count (:agents data)) "agents,"
+                 (count (:products data)) "products,"
+                 (count (:activities data)) "activities")
+       (get (swap! dataset-cache assoc file-path data) file-path)))))
 
 ;; ============================================================================
 ;; Data Access Helpers
