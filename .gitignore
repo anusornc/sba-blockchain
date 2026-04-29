@@ -9,6 +9,8 @@ resources/public/js/
 .tools/
 .home/
 .codex
+__pycache__/
+*.pyc
 *.log
 *.class
 *.jar
@@ -17,3 +19,4 @@ datomic-pro*/
 crypto-config/
 wallet/
 keystore*
+benchmarks/real-world/results/

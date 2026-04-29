@@ -17,6 +17,7 @@ benchmarks/reproducibility/results/query/main_revised_query_20260428_010/
 benchmarks/reproducibility/results/query/main_revised_query_20260428_011/
 benchmarks/reproducibility/results/query/query_rerun_summary_20260428.md
 benchmarks/reproducibility/results/fabric/main_revised_fabric_20260428_002/
+benchmarks/real-world/artifacts/openfda_food_disk_scale_20260429_065523/
 ```
 
 For repo-local prerequisites, run `source scripts/dev-env.bash` before starting
@@ -63,3 +64,30 @@ and deploys the `benchmark` asset-transfer chaincode as chaincode-as-a-service
 (CCAAS). Generated Fabric crypto material, channel artifacts, wallets,
 peer/orderer state, and Docker volumes are intentionally excluded from this
 public release.
+
+openFDA real-world benchmark:
+
+```bash
+LIMIT=1000 WARMUP=30 REPS=100 \
+  bash benchmarks/real-world/openfda-food/run_openfda_food_benchmark.bash
+```
+
+Disk-backed openFDA scale reruns require a Datomic Pro transactor executable
+outside git. Set `DATOMIC_TRANSACTOR_BIN` if it is not installed at
+`external/datomic-pro/bin/transactor`.
+
+```bash
+DATOMIC_TRANSACTOR_BIN=/path/to/datomic-pro/bin/transactor \
+SCALE_LIMITS="5000 10000 26000" RUN_COUNT_PER_SCALE=1 \
+  bash benchmarks/real-world/openfda-food/run_openfda_food_disk_scale.bash
+```
+
+Bundled openFDA artifact package:
+
+```text
+benchmarks/real-world/artifacts/openfda_food_disk_scale_20260429_065523/
+```
+
+The artifact package includes run manifests, raw latency CSVs, summary CSVs,
+and SHA-256 hashes for raw source JSON captures. It intentionally excludes
+large raw JSON captures and Datomic runtime storage/log files.

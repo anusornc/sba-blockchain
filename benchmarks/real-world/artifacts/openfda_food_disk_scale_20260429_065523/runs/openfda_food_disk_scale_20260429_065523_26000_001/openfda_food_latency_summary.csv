@@ -1,0 +1,5 @@
+query,ok_count,error_count,mean_ms,p50_ms,p95_ms,p99_ms,min_ms,max_ms
+q1_recall_number_lookup,100,0,0.756,0.765,0.983,1.072,0.481,1.286
+q2_entity_uuid_lookup,100,0,0.562,0.544,0.653,0.879,0.459,1.022
+q3_activity_uuid_lookup,100,0,0.556,0.516,0.821,1.003,0.437,1.129
+q4_recalling_firm_lookup,100,0,1.415,1.370,1.770,2.487,1.172,2.536
