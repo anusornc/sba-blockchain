@@ -12,6 +12,8 @@ a production-certified blockchain platform.
 - Local query benchmark harness and bundled repeated-run artifacts.
 - Local Fabric invoke/query harness artifacts for the selected CCAAS run.
 - openFDA public recall-data scale-check harness and selected artifact package.
+- Product-equivalent openFDA exact-lookup benchmark artifacts for SBA/Datomic,
+  Neo4j, Hyperledger Fabric, and Ethereum transaction-input scan baselines.
 
 ## Claims That Require Additional Evidence
 
@@ -20,7 +22,7 @@ a production-certified blockchain platform.
 - End-to-end cross-chain bridge latency with relayers, remote chain reads,
   transaction submission, and finality.
 - Query performance at 10k, 100k, or million-entity scale.
-- Product-to-product benchmark claims using openFDA data.
+- Product-to-product claims beyond the bundled exact-lookup openFDA workload.
 - Security hardening against real adversarial API or infrastructure threats.
 
 ## Benchmark Interpretation
@@ -33,6 +35,13 @@ and the deterministic UHT dataset. The selected paper evidence run is
 The bundled openFDA evidence is an external-validity scale check over public
 FDA food recall records. It is a recall/event lookup workload, not a complete
 multi-party supply-chain traversal and not a product comparison benchmark.
+
+The bundled product-equivalent openFDA panel uses the same public openFDA source
+capture and exact-lookup query families across SBA/Datomic, Neo4j, Fabric, and
+Ethereum adapters. It supports local product-equivalent latency comparison for
+that workload only. The Ethereum adapter stores records as transaction input and
+answers lookups by scanning block transactions; it is real execution but not an
+indexed smart-contract design.
 
 Use mean, p95, and p99 values for latency interpretation. Max latency captures
 occasional runtime outliers and should not be treated as representative

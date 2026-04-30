@@ -1,0 +1,15 @@
+\begin{table}[t]
+\centering
+\caption{Product-equivalent openFDA benchmark summary (5 reruns, 100 records, 10 measured repetitions per query).}
+\label{tab:openfda-product-equivalent}
+\begin{tabular}{lrrrr}
+\toprule
+System & Mean (ms) & p95 (ms) & Worst p95 (ms) & p95 vs. SBA \\
+\midrule
+SBA/Datomic & 1.454 & 2.005 & 8.573 & 1.0$\times$ \\
+Neo4j & 15.608 & 27.280 & 38.102 & 13.6$\times$ \\
+Fabric & 70.470 & 74.901 & 80.408 & 37.4$\times$ \\
+Ethereum & 138.456 & 161.870 & 178.495 & 80.7$\times$ \\
+\bottomrule
+\end{tabular}
+\end{table}

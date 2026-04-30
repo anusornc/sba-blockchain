@@ -1,0 +1,5 @@
+system,query,ok_count,error_count,mean_ms,p50_ms,p95_ms,p99_ms,min_ms,max_ms
+neo4j,q1_recall_number_lookup,10,0,13.366,12.487,18.152,18.152,8.394,18.152
+neo4j,q2_entity_uuid_lookup,10,0,13.933,14.503,18.232,18.232,9.504,18.232
+neo4j,q3_activity_uuid_lookup,10,0,14.371,12.668,28.686,28.686,9.207,28.686
+neo4j,q4_recalling_firm_lookup,10,0,15.062,14.843,27.341,27.341,8.698,27.341

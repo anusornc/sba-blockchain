@@ -1,0 +1,17 @@
+system,query,ok_count,error_count,mean_ms,p50_ms,p95_ms,p99_ms,min_ms,max_ms
+ethereum,q1_recall_number_lookup,10,0,1694.960,1708.605,1919.635,1919.635,1483.829,1919.635
+ethereum,q2_entity_uuid_lookup,10,0,1689.636,1662.129,1923.837,1923.837,1414.020,1923.837
+ethereum,q3_activity_uuid_lookup,10,0,1622.558,1671.190,1908.814,1908.814,1298.603,1908.814
+ethereum,q4_recalling_firm_lookup,10,0,1577.704,1693.126,1835.265,1835.265,1289.352,1835.265
+fabric,q1_recall_number_lookup,10,0,71.373,72.075,74.606,74.606,66.946,74.606
+fabric,q2_entity_uuid_lookup,10,0,70.858,70.184,74.267,74.267,68.198,74.267
+fabric,q3_activity_uuid_lookup,10,0,72.358,71.807,76.793,76.793,67.605,76.793
+fabric,q4_recalling_firm_lookup,10,0,74.352,73.593,80.300,80.300,67.668,80.300
+neo4j,q1_recall_number_lookup,10,0,13.305,14.296,19.027,19.027,8.203,19.027
+neo4j,q2_entity_uuid_lookup,10,0,14.755,14.141,25.222,25.222,8.504,25.222
+neo4j,q3_activity_uuid_lookup,10,0,14.188,13.512,27.364,27.364,8.821,27.364
+neo4j,q4_recalling_firm_lookup,10,0,16.831,12.160,38.272,38.272,9.705,38.272
+sba,q1_recall_number_lookup,10,0,2.179,2.086,2.864,2.864,1.987,2.864
+sba,q2_entity_uuid_lookup,10,0,1.447,1.448,1.552,1.552,1.334,1.552
+sba,q3_activity_uuid_lookup,10,0,1.575,1.531,1.928,1.928,1.326,1.928
+sba,q4_recalling_firm_lookup,10,0,2.687,2.748,3.626,3.626,2.022,3.626

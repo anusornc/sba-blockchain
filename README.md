@@ -18,6 +18,7 @@ private repository history.
 - `resources/openapi/api.yaml` - API description
 - `benchmarks/reproducibility/` - public benchmark harnesses
 - `benchmarks/real-world/` - openFDA real-world benchmark harness and artifact package
+- `benchmarks/real-world/openfda-food/run_product_equivalent_reruns.bash` - product-equivalent openFDA benchmark panel
 - `docs/LIMITATIONS.md` - evidence boundaries and production-readiness gaps
 
 ## Datomic Dependency Notice

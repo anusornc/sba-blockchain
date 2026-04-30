@@ -13,6 +13,7 @@
             [datomic.api :as d]
             [datomic-blockchain.datomic.schema :as schema])
   (:import [java.io File]
+           [java.security MessageDigest]
            [java.text SimpleDateFormat]
            [java.util Date UUID]))
 
@@ -109,6 +110,25 @@
 (defn write-json!
   [path value]
   (spit path (json/write-str value :escape-slash false)))
+
+(defn load-records-from-file
+  [path]
+  (let [payload (json/read-str (slurp path) :key-fn keyword)]
+    {:meta (:meta payload)
+     :pages []
+     :records (or (:records payload) (:results payload) [])}))
+
+(defn sha256-file
+  [path]
+  (let [digest (MessageDigest/getInstance "SHA-256")
+        buffer (byte-array (* 1024 1024))]
+    (with-open [in (io/input-stream path)]
+      (loop []
+        (let [n (.read in buffer)]
+          (when (pos? n)
+            (.update digest buffer 0 n)
+            (recur)))))
+    (apply str (map #(format "%02x" (bit-and % 0xff)) (.digest digest)))))
 
 (defn record->ids
   [record]
@@ -291,17 +311,21 @@
                         (format-ms max-ms))))))
 
 (defn write-manifest!
-  [path {:keys [run-id out-dir limit search warmup reps git-commit git-dirty
+  [path {:keys [run-id out-dir limit search warmup reps git-commit git-dirty source-raw-json source-raw-json-sha256
                 datomic-config ingest-ms meta fetched usable anchors summary total-errors]}]
   (let [results-meta (:results meta)]
     (spit path
           (str
            "run_id=" run-id "\n"
            "timestamp_utc=" (java.time.Instant/now) "\n"
+           "system=sba\n"
+           "adapter_mode=SBA/Datomic PROV-O schema; exact indexed Datomic lookups\n"
            "source=openFDA Food Enforcement Reports\n"
            "source_endpoint=" endpoint "\n"
            "source_terms=https://open.fda.gov/terms/\n"
            "source_license=https://open.fda.gov/license/ (CC0 unless otherwise noted)\n"
+           "source_raw_json=" source-raw-json "\n"
+           "source_raw_json_sha256=" source-raw-json-sha256 "\n"
            "source_last_updated=" (:last_updated meta) "\n"
            "source_total_available=" (:total results-meta) "\n"
            "limit=" limit "\n"
@@ -343,11 +367,21 @@
                         :port (parse-long-env "DATOMIC_PORT" 4334)
                         :uri (System/getenv "DATOMIC_URI")}
         search (System/getenv "OPENFDA_SEARCH")
+        input (System/getenv "OPENFDA_INPUT")
         _ (ensure-dir! out-dir)
-        fetched (fetch-records {:limit limit :search search})
+        fetched (if (str/blank? input)
+                  (fetch-records {:limit limit :search search})
+                  (load-records-from-file input))
         raw-path (str out-dir "/openfda_food_raw.json")
-        _ (write-json! raw-path fetched)
-        records (filterv usable-record? (:records fetched))]
+        _ (if (str/blank? input)
+            (write-json! raw-path fetched)
+            (spit raw-path (slurp input)))
+        source-raw-json (if (str/blank? input) raw-path input)
+        source-raw-json-sha256 (sha256-file source-raw-json)
+        records (->> (:records fetched)
+                     (filter usable-record?)
+                     (take limit)
+                     vec)]
     (when (empty? records)
       (throw (ex-info "No usable openFDA records returned" {:limit limit :search search})))
     (let [conn (setup-db! datomic-config)
@@ -378,6 +412,8 @@
                                  :reps reps
                                  :git-commit git-commit
                                  :git-dirty git-dirty
+                                 :source-raw-json source-raw-json
+                                 :source-raw-json-sha256 source-raw-json-sha256
                                  :datomic-config datomic-config
                                  :ingest-ms ingest-ms
                                  :meta (:meta fetched)

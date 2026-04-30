@@ -1,0 +1,5 @@
+system,query,ok_count,error_count,mean_ms,p50_ms,p95_ms,p99_ms,min_ms,max_ms
+fabric,q1_recall_number_lookup,10,0,69.080,69.695,71.738,71.738,65.061,71.738
+fabric,q2_entity_uuid_lookup,10,0,69.780,69.697,73.830,73.830,64.192,73.830
+fabric,q3_activity_uuid_lookup,10,0,69.629,70.829,74.086,74.086,62.420,74.086
+fabric,q4_recalling_firm_lookup,10,0,72.984,73.758,74.737,74.737,69.419,74.737

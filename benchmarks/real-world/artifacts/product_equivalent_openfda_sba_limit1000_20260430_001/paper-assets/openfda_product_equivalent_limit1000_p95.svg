@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="860" height="420" viewBox="0 0 860 420" role="img" aria-labelledby="title desc">
+<title id="title">openFDA product-equivalent p95 latency</title>
+<desc id="desc">Average p95 latency across five reruns for SBA/Datomic, Neo4j, Fabric, and Ethereum.</desc>
+<rect width="100%" height="100%" fill="#fbfaf7"/>
+<text x="36" y="30" font-family="Georgia, serif" font-size="22" fill="#172018">openFDA product-equivalent benchmark: average p95 latency</text>
+<text x="36" y="54" font-family="Georgia, serif" font-size="13" fill="#5b625c">5 reruns, 100 records, 3 warmup, 10 measured repetitions per query; lower is better</text>
+<line x1="145.0" y1="78" x2="145.0" y2="362" stroke="#ddd8cc" stroke-width="1"/>
+<text x="145.0" y="388" text-anchor="middle" font-family="Arial, sans-serif" font-size="12" fill="#697067">0</text>
+<line x1="160.7" y1="78" x2="160.7" y2="362" stroke="#ddd8cc" stroke-width="1"/>
+<text x="160.7" y="388" text-anchor="middle" font-family="Arial, sans-serif" font-size="12" fill="#697067">50</text>
+<line x1="176.4" y1="78" x2="176.4" y2="362" stroke="#ddd8cc" stroke-width="1"/>
+<text x="176.4" y="388" text-anchor="middle" font-family="Arial, sans-serif" font-size="12" fill="#697067">100</text>
+<line x1="192.1" y1="78" x2="192.1" y2="362" stroke="#ddd8cc" stroke-width="1"/>
+<text x="192.1" y="388" text-anchor="middle" font-family="Arial, sans-serif" font-size="12" fill="#697067">150</text>
+<text x="192.1" y="408" text-anchor="middle" font-family="Arial, sans-serif" font-size="12" fill="#697067">milliseconds</text>
+<text x="127" y="119" text-anchor="end" font-family="Arial, sans-serif" font-size="15" fill="#1f2933">SBA/Datomic</text>
+<rect x="145" y="97" width="2.0" height="34" rx="5" fill="#0f766e"/>
+<text x="155.0" y="119" font-family="Arial, sans-serif" font-size="14" fill="#1f2933">2.075 ms, baseline</text>
+<text x="127" y="173" text-anchor="end" font-family="Arial, sans-serif" font-size="15" fill="#1f2933">Neo4j</text>
+<rect x="145" y="151" width="9.0" height="34" rx="5" fill="#2563eb"/>
+<text x="162.0" y="173" font-family="Arial, sans-serif" font-size="14" fill="#1f2933">28.570 ms, 13.8x SBA</text>
+<text x="127" y="227" text-anchor="end" font-family="Arial, sans-serif" font-size="15" fill="#1f2933">Fabric</text>
+<rect x="145" y="205" width="24.5" height="34" rx="5" fill="#b45309"/>
+<text x="177.5" y="227" font-family="Arial, sans-serif" font-size="14" fill="#1f2933">78.099 ms, 37.6x SBA</text>
+<text x="127" y="281" text-anchor="end" font-family="Arial, sans-serif" font-size="15" fill="#1f2933">Ethereum</text>
+<rect x="145" y="259" width="600.0" height="34" rx="5" fill="#6b7280"/>
+<text x="630.0" y="281" font-family="Arial, sans-serif" font-size="14" fill="#1f2933">1911.255 ms, 921.0x SBA</text>
+</svg>

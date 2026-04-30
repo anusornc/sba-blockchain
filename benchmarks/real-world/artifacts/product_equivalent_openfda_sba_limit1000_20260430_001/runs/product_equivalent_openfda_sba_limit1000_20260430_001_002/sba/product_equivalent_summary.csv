@@ -1,0 +1,5 @@
+system,query,ok_count,error_count,mean_ms,p50_ms,p95_ms,p99_ms,min_ms,max_ms
+sba,q1_recall_number_lookup,10,0,1.404,1.347,1.700,1.700,1.292,1.700
+sba,q2_entity_uuid_lookup,10,0,1.003,0.999,1.127,1.127,0.849,1.127
+sba,q3_activity_uuid_lookup,10,0,1.091,1.034,1.371,1.371,0.962,1.371
+sba,q4_recalling_firm_lookup,10,0,1.930,1.732,2.299,2.299,1.501,2.299

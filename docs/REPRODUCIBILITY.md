@@ -18,6 +18,8 @@ benchmarks/reproducibility/results/query/main_revised_query_20260428_011/
 benchmarks/reproducibility/results/query/query_rerun_summary_20260428.md
 benchmarks/reproducibility/results/fabric/main_revised_fabric_20260428_002/
 benchmarks/real-world/artifacts/openfda_food_disk_scale_20260429_065523/
+benchmarks/real-world/artifacts/product_equivalent_openfda_sba_20260430_001/
+benchmarks/real-world/artifacts/product_equivalent_openfda_sba_limit1000_20260430_001/
 ```
 
 For repo-local prerequisites, run `source scripts/dev-env.bash` before starting
@@ -86,6 +88,21 @@ Bundled openFDA artifact package:
 
 ```text
 benchmarks/real-world/artifacts/openfda_food_disk_scale_20260429_065523/
+```
+
+Product-equivalent openFDA panel:
+
+```bash
+INPUT=path/to/openfda_food_raw.json LIMIT=1000 WARMUP=3 REPS=10 \
+SYSTEMS="sba neo4j ethereum fabric" START_FABRIC=1 \
+  bash benchmarks/real-world/openfda-food/run_product_equivalent_reruns.bash
+```
+
+Bundled product-equivalent artifact packages:
+
+```text
+benchmarks/real-world/artifacts/product_equivalent_openfda_sba_20260430_001/
+benchmarks/real-world/artifacts/product_equivalent_openfda_sba_limit1000_20260430_001/
 ```
 
 The artifact package includes run manifests, raw latency CSVs, summary CSVs,
