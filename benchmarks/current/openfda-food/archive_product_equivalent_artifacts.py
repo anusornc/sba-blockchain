@@ -66,13 +66,14 @@ def entry_for(
     artifact_path: str,
     archived: bool,
     measured_path: Path | None = None,
+    source_path: Path | None = None,
 ) -> ArtifactEntry:
     hash_path = measured_path or src
     return ArtifactEntry(
         run_id=run_id,
         system=system,
         role=role,
-        source_path=src,
+        source_path=source_path or src,
         artifact_path=artifact_path,
         byte_count=hash_path.stat().st_size,
         sha256=sha256_file(hash_path),
@@ -137,7 +138,18 @@ def archive_asset_files(archive_dir: Path, paths: list[Path]) -> list[ArtifactEn
         relative = Path("paper-assets") / src.name
         dst = archive_dir / relative
         copy_artifact(src, dst)
-        entries.append(entry_for("paper-assets", "all", "paper-asset", src, str(relative), archived=True, measured_path=dst))
+        entries.append(
+            entry_for(
+                "paper-assets",
+                "all",
+                "paper-asset",
+                src,
+                str(relative),
+                archived=True,
+                measured_path=dst,
+                source_path=relative,
+            )
+        )
     return entries
 
 

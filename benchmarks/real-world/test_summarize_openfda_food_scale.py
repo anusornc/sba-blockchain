@@ -10,7 +10,7 @@ import unittest
 from pathlib import Path
 
 
-SCRIPT_PATH = Path(__file__).parent / "openfda-food" / "summarize_openfda_food_scale.py"
+SCRIPT_PATH = Path(__file__).resolve().parents[1] / "current" / "openfda-food" / "summarize_openfda_food_scale.py"
 SPEC = importlib.util.spec_from_file_location("summarize_openfda_food_scale", SCRIPT_PATH)
 assert SPEC is not None and SPEC.loader is not None
 summarizer = importlib.util.module_from_spec(SPEC)

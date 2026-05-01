@@ -7,7 +7,7 @@ import unittest
 from pathlib import Path
 
 
-MODULE_PATH = Path(__file__).parent / "openfda-food" / "product_equivalent_benchmark.py"
+MODULE_PATH = Path(__file__).resolve().parents[1] / "current" / "openfda-food" / "product_equivalent_benchmark.py"
 SPEC = importlib.util.spec_from_file_location("product_equivalent_benchmark", MODULE_PATH)
 assert SPEC and SPEC.loader
 bench = importlib.util.module_from_spec(SPEC)

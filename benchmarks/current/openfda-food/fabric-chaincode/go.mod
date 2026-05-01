@@ -1,4 +1,4 @@
-module github.com/anusornc/sba-blockchain/benchmarks/real-world/openfda-food/fabric-chaincode
+module github.com/anusornc/sba-blockchain/benchmarks/current/openfda-food/fabric-chaincode
 
 go 1.22
 

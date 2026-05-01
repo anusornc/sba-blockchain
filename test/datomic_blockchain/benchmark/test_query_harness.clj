@@ -4,7 +4,8 @@
             [clojure.test :refer :all]))
 
 (def harness-paths
-  ["benchmarks/main-revised/query/run_query_harness.bash"
+  ["benchmarks/current/uht-query/run_query_harness.bash"
+   "benchmarks/main-revised/query/run_query_harness.bash"
    "benchmarks/reproducibility/query/run_query_harness.bash"])
 
 (defn- existing-harness-path []

@@ -17,9 +17,16 @@ private repository history.
 - `resources/datasets/uht-supply-chain/data.edn` - public sample dataset
 - `resources/openapi/api.yaml` - API description
 - `benchmarks/reproducibility/` - public benchmark harnesses
-- `benchmarks/real-world/` - openFDA real-world benchmark harness and artifact package
-- `benchmarks/real-world/openfda-food/run_product_equivalent_reruns.bash` - product-equivalent openFDA benchmark panel
+- `benchmarks/current/` - current benchmark harnesses
+- `benchmarks/current/openfda-food/run_product_equivalent_reruns.bash` - product-equivalent openFDA benchmark panel
+- `benchmarks/real-world/artifacts/` - public-safe openFDA artifact packages
 - `docs/LIMITATIONS.md` - evidence boundaries and production-readiness gaps
+
+The private work repository keeps broader project notes under `docs/current/`,
+`docs/reproducibility/`, and `evidence/paper-current/`. This public release
+does not export those trees wholesale because some files contain private
+research workflow context. Public-safe setup, test, benchmark, limitation, and
+security instructions are generated into this repository during export.
 
 ## Datomic Dependency Notice
 
