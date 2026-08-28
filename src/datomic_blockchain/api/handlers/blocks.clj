@@ -23,15 +23,15 @@
           db (d/db connection)]
 
       ;; Query all blockchain transactions with pagination
-      (let [all-txs (or (d/q '[:find [(pull ?tx [:blockchain/transaction
-                                                  :blockchain/timestamp
-                                                  :blockchain/hash
-                                                  :blockchain/previous-hash
-                                                  :blockchain/creator
-                                                  :blockchain/nonce])]
-                              :where [?tx :blockchain/transaction]]
-                            db)
-                       [])
+      (let [all-txs (vec (or (d/q '[:find [(pull ?tx [:blockchain/transaction
+                                                     :blockchain/timestamp
+                                                     :blockchain/hash
+                                                     :blockchain/previous-hash
+                                                     :blockchain/creator
+                                                     :blockchain/nonce]) ...]
+                                    :where [?tx :blockchain/transaction]]
+                                  db)
+                             []))
             total-count (count all-txs)
             txs (if (pos? total-count)
                   (subvec all-txs offset (min (+ offset limit) total-count))

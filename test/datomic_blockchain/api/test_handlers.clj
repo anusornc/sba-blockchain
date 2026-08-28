@@ -493,5 +493,141 @@
       (is (= 0 (get-in body [:data :count])))
       (is (vector? (get-in body [:data :transactions]))))))
 
+;; =============================================================================
+;; Live UHT demo path (sample load → QR / graph / trace / stats / blocks)
+;; =============================================================================
+
+(defn- with-fresh-conn
+  "Run f with a dedicated in-memory connection that has the schema installed."
+  [f]
+  (let [uri (str "datomic:mem://uht-demo-" (UUID/randomUUID))]
+    (d/delete-database uri)
+    (d/create-database uri)
+    (let [conn (d/connect uri)]
+      @(d/transact conn schema/full-schema)
+      (try
+        (f conn)
+        (finally
+          (d/release conn)
+          (d/delete-database uri))))))
+
+(defn- load-uht-sample
+  "Load the UHT sample dataset and return parsed response data."
+  [conn]
+  (parse-response-body (handlers/handle-load-sample-data {} conn)))
+
+(deftest uht-demo-ontologies-and-stats-after-sample-load-test
+  (testing "Ontologies and stats succeed after sample load"
+    (with-fresh-conn
+      (fn [conn]
+        (let [_ (load-uht-sample conn)
+              ontologies-resp (handlers/handle-list-ontologies {} conn)
+              stats-resp (handlers/handle-get-stats {} conn)
+              ontologies (parse-response-body ontologies-resp)
+              stats (parse-response-body stats-resp)]
+          (is (= 200 (:status ontologies-resp)))
+          (is (true? (:success ontologies)))
+          (is (vector? (get-in ontologies [:data :ontologies])))
+          (is (number? (get-in ontologies [:data :count])))
+          (is (number? (get-in stats [:data :knowledge-base :total-entities])))
+          (is (number? (get-in stats [:data :knowledge-base :total-activities])))
+          (is (= 4 (get-in stats [:data :knowledge-base :total-entities])))
+          (is (= 7 (get-in stats [:data :knowledge-base :total-activities]))))))))
+
+(deftest uht-demo-graph-after-sample-load-test
+  (testing "Graph endpoints return nodes for the chocolate entity"
+    (with-fresh-conn
+      (fn [conn]
+        (let [sample (load-uht-sample conn)
+              entity-id (get-in sample [:data :benchmark-anchors :entity-id])
+              graph-resp (handlers/handle-get-graph {:params {:id entity-id}} conn)
+              entity-resp (handlers/handle-get-entity {:params {:id entity-id}} conn)
+              graph (parse-response-body graph-resp)
+              entity (parse-response-body entity-resp)]
+          (is (= 200 (:status graph-resp)))
+          (is (= 200 (:status entity-resp)))
+          (is (seq (get-in graph [:data :nodes])))
+          (is (contains? (:data entity) :entity))
+          (is (map? (get-in entity [:data :neighbors]))))))))
+
+(deftest uht-demo-qr-reads-datomic-test
+  (testing "QR lookup uses loaded ledger data and unique graph node ids"
+    (with-fresh-conn
+      (fn [conn]
+        (let [_ (load-uht-sample conn)
+              response (handlers/handle-trace-by-qr
+                        {:params {:qr "UHT-CHOC-2024-001-QR"}}
+                        conn)
+              body (parse-response-body response)
+              node-ids (map :id (get-in body [:data :graph :nodes]))]
+          (is (= 200 (:status response)))
+          (is (= "UHT-CHOC-CM-2024-001" (get-in body [:data :product :batch])))
+          (is (= "UHT-CHOC-2024-001-QR" (get-in body [:data :product :qr-code])))
+          (is (seq (get-in body [:data :journey :stages])))
+          (is (= (count node-ids) (count (set node-ids)))))))))
+
+(deftest uht-qr-and-trace-include-completeness-score-test
+  (testing "QR interface and trace return completeness score and missing evidence"
+    (with-fresh-conn
+      (fn [conn]
+        (let [sample (load-uht-sample conn)
+              entity-id (get-in sample [:data :benchmark-anchors :entity-id])
+              qr-resp (handlers/handle-trace-by-qr
+                       {:params {:qr "UHT-CHOC-2024-001-QR"}}
+                       conn)
+              trace-resp (handlers/handle-trace-product {:params {:id entity-id}} conn)
+              qr (parse-response-body qr-resp)
+              trace (parse-response-body trace-resp)
+              qr-score (get-in qr [:data :completeness-score])
+              trace-score (get-in trace [:data :completeness-score])]
+          (is (= 200 (:status qr-resp)))
+          (is (= 200 (:status trace-resp)))
+          (is (true? (:success qr)))
+          (is (number? qr-score))
+          (is (<= 0 qr-score 1))
+          (is (vector? (get-in qr [:data :missing-evidence])))
+          (is (number? trace-score))
+          (is (<= 0 trace-score 1))
+          (is (vector? (get-in trace [:data :missing-evidence])))
+          (is (= qr-score trace-score)))))))
+
+(deftest uht-demo-trace-provenance-timeline-named-test
+  (testing "Trace/provenance/timeline return named events from Datomic"
+    (with-fresh-conn
+      (fn [conn]
+        (let [sample (load-uht-sample conn)
+              entity-id (get-in sample [:data :benchmark-anchors :entity-id])
+              trace (parse-response-body
+                     (handlers/handle-trace-product {:params {:id entity-id}} conn))
+              provenance (parse-response-body
+                          (handlers/handle-get-provenance {:params {:id entity-id}} conn))
+              timeline (parse-response-body
+                        (handlers/handle-get-timeline {:params {:id entity-id}} conn))
+              first-prov (first (get-in provenance [:data :provenance]))
+              first-event (first (get-in trace [:data :history]))]
+          (is (pos? (get-in trace [:data :events])))
+          (is (seq (get-in trace [:data :history])))
+          (is (map? first-event))
+          (is (string? (or (:activity-type first-event)
+                           (:activity-name first-event)
+                           (get first-event (keyword "activity-type")))))
+          (is (pos? (count (get-in provenance [:data :provenance]))))
+          (is (map? first-prov))
+          (is (string? (or (:agent-name first-prov)
+                           (:entity-name first-prov))))
+          (is (pos? (get-in timeline [:data :event-count])))
+          (is (map? (first (get-in timeline [:data :timeline])))))))))
+
+(deftest uht-demo-create-test-blocks-lists-all-test
+  (testing "Creating three test blocks lists three blocks"
+    (with-fresh-conn
+      (fn [conn]
+        (let [_ (handlers/handle-create-test-blocks {:params {"count" "3"}} conn)
+              response (handlers/handle-list-blocks {:params {}} conn)
+              body (parse-response-body response)]
+          (is (= 200 (:status response)))
+          (is (= 3 (get-in body [:data :pagination :total])))
+          (is (= 3 (count (get-in body [:data :blocks])))))))))
+
 ;; max-page-size and default-page-size are private constants
 ;; They are implementation details, not part of the public API

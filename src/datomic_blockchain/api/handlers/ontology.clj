@@ -12,11 +12,12 @@
 (defn handle-list-ontologies
   "List loaded ontologies"
   [request connection]
-  (log/info "List ontologies")
-  (let [ontologies (loader/list-ontologies (d/db connection))]
-    (common/success
-     {:ontologies ontologies
-      :count (count ontologies)})))
+  (common/with-error-handling "List ontologies"
+    (log/info "List ontologies")
+    (let [ontologies (vec (or (loader/list-ontologies connection) []))]
+      (common/success
+       {:ontologies ontologies
+        :count (count ontologies)}))))
 
 (defn handle-get-ontology
   "Get ontology structure from Datomic"

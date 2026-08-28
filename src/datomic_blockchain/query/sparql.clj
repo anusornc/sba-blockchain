@@ -267,20 +267,46 @@
 ;; Supply Chain Specific Queries
 ;; ============================================================================
 
-(defn query-product-history
-  "Query: Complete history of a product through supply chain
-  Returns all events in chronological order"
+(defn- product-history-generated
   [db product-id]
-  (d/q '[:find [?entity ?activity-type ?location ?time]
+  (d/q '[:find ?entity ?activity ?activity-type ?agent-name ?time ?location
          :in $ ?product-id
          :where
          [?entity :prov/entity ?product-id]
-         [?entity :prov/wasGeneratedBy ?activity]
+         [?entity :prov/wasGeneratedBy ?activity-id]
+         [?activity :prov/activity ?activity-id]
          [?activity :prov/activity-type ?activity-type]
          [?activity :prov/startedAtTime ?time]
-         [(get-else $ ?activity :traceability/location "unknown") ?location]]
+         [(get-else $ ?activity :traceability/location "unknown") ?location]
+         [?activity :prov/wasAssociatedWith ?agent-id]
+         [?agent :prov/agent ?agent-id]
+         [?agent :prov/agent-name ?agent-name]]
        db
        product-id))
+
+(defn- product-history-used
+  [db product-id]
+  (d/q '[:find ?entity ?activity ?activity-type ?agent-name ?time ?location
+         :in $ ?product-id
+         :where
+         [?entity :prov/entity ?product-id]
+         [?activity :prov/used ?product-id]
+         [?activity :prov/activity-type ?activity-type]
+         [?activity :prov/startedAtTime ?time]
+         [(get-else $ ?activity :traceability/location "unknown") ?location]
+         [?activity :prov/wasAssociatedWith ?agent-id]
+         [?agent :prov/agent ?agent-id]
+         [?agent :prov/agent-name ?agent-name]]
+       db
+       product-id))
+
+(defn query-product-history
+  "Query: Complete history of a product through supply chain
+  Returns generated-by and used events as
+  [entity-eid activity-eid activity-type agent-name time location] tuples."
+  [db product-id]
+  (set (concat (product-history-generated db product-id)
+               (product-history-used db product-id))))
 
 (defn query-batch-products
   "Query: Find all products in a batch"

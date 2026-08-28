@@ -155,14 +155,16 @@
           (mapv (fn [[k data]]
                   (let [entity-id (get product-ids k)
                         product-id (stable-uuid (str "product/" (name k)))]
-                    {:db/id (str "product-" (name k))
-                     :prov/entity entity-id
-                     :prov/entity-type (entity-type-for-key k)
-                     :traceability/batch (or (:traceability/batch data) "UNKNOWN")
-                     :traceability/product product-id
-                     :traceability/product-name (or (:traceability/product data)
-                                                   (:uht/variant-name data)
-                                                   "Unknown Product")}))
+                    (cond-> {:db/id (str "product-" (name k))
+                             :prov/entity entity-id
+                             :prov/entity-type (entity-type-for-key k)
+                             :traceability/batch (or (:traceability/batch data) "UNKNOWN")
+                             :traceability/product product-id
+                             :traceability/product-name (or (:traceability/product data)
+                                                           (:uht/variant-name data)
+                                                           "Unknown Product")}
+                      (:uht/qr-code data)
+                      (assoc :traceability/qr-code (:uht/qr-code data)))))
                 (:products ds))
           activity-tx
           (mapv (fn [[k data]]

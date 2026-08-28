@@ -280,6 +280,13 @@
     :db/index true
     :db/doc "Batch identifier"}
 
+   {:db/ident :traceability/qr-code
+    :db/valueType :db.type/string
+    :db/unique :db.unique/identity
+    :db/cardinality :db.cardinality/one
+    :db/index true
+    :db/doc "QR code identifier for public product lookup"}
+
    {:db/ident :traceability/location
     :db/valueType :db.type/string
     :db/cardinality :db.cardinality/one

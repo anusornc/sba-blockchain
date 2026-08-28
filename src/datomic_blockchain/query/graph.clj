@@ -496,6 +496,26 @@
 ;; Graph Building for Visualization
 ;; ============================================================================
 
+(defn- node-from-eid
+  "Build a visualization node from a Datomic entity id or PROV UUID."
+  [db eid]
+  (let [entity (get-entity db eid)
+        uuid (or (:prov/entity entity)
+                 (:prov/activity entity)
+                 (:prov/agent entity)
+                 eid)]
+    {:id (str uuid)
+     :label (str (or (:traceability/product-name entity)
+                     (:prov/agent-name entity)
+                     (:prov/entity-type entity)
+                     (:prov/activity-type entity)
+                     uuid))
+     :type (cond
+             (:prov/entity entity) :entity
+             (:prov/activity entity) :activity
+             (:prov/agent entity) :agent
+             :else :unknown)}))
+
 (defn build-subgraph
   "Build a subgraph around an entity for visualization
    Returns map with :nodes and :edges keys including parents and children"

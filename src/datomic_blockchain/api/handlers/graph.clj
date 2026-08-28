@@ -9,6 +9,14 @@
 ;; Graph Handlers
 ;; ============================================================================
 
+(defn- stringify-neighbors
+  "Convert neighbor UUID collections into JSON-safe string vectors."
+  [neighbors]
+  (into {}
+        (map (fn [[rel ids]]
+               [rel (mapv str (if (coll? ids) ids [ids]))])
+             (or neighbors {}))))
+
 (defn handle-get-entity
   "Get entity with its relationships (with input validation)"
   [request connection]
@@ -99,8 +107,10 @@
   (log/info "Get statistics")
   (let [db (d/db connection)]
     (common/success
-     {:knowledge-base {:total-entities (first (d/q '[:find (count ?e)
-                                                     :where [?e :prov/entity]] db))
-                       :total-activities (first (d/q '[:find (count ?a)
-                                                       :where [?a :prov/activity]] db))}
+     {:knowledge-base {:total-entities (or (d/q '[:find (count ?e) .
+                                                  :where [?e :prov/entity]] db)
+                                           0)
+                       :total-activities (or (d/q '[:find (count ?a) .
+                                                    :where [?a :prov/activity]] db)
+                                             0)}
       :timestamp (java.util.Date.)})))
