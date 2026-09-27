@@ -33,7 +33,7 @@ before running the query harness. The `/api/query` calls require a valid JWT in
 `API_TOKEN`; the public QR trace route does not require authentication.
 
 NK completeness experiment (one command regenerates the summary CSV, raw rows,
-and manifest under `benchmarks/reproducibility/nk/out/`):
+and manifest under `benchmarks/reproducibility/nk/results/`):
 
 ```bash
 bash benchmarks/reproducibility/nk/run_nk_completeness_experiment.bash

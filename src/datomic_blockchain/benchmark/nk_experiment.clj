@@ -14,7 +14,7 @@
    paper reports.
 
    Entry point: clojure -M:nk-experiment — writes raw rows, a summary
-   CSV, and a manifest under benchmarks/reproducibility/nk/out/."
+   CSV, and a manifest under benchmarks/reproducibility/nk/results/."
   (:require [clojure.data.csv :as csv]
             [clojure.java.io :as io]
             [clojure.java.shell :as shell]
@@ -260,7 +260,7 @@
 
    Returns {:rows :summary :manifest :files}. Raw and summary CSVs and
    the manifest are kept together, as the reproducibility docs require."
-  ([opts] (write-experiment-outputs! opts "benchmarks/reproducibility/nk/out"))
+  ([opts] (write-experiment-outputs! opts "benchmarks/reproducibility/nk/results"))
   ([opts out-dir]
    (let [opts (merge default-opts opts)
          rows (run-experiment opts)
@@ -295,7 +295,7 @@
 
 (defn -main
   "Regenerate the NK completeness experiment artifacts under
-   benchmarks/reproducibility/nk/out/ with the published defaults."
+   benchmarks/reproducibility/nk/results/ with the published defaults."
   [& _args]
   (let [{:keys [summary files]} (write-experiment-outputs! {})]
     (println "NK completeness experiment written:")
