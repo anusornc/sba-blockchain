@@ -49,6 +49,11 @@ Use `clojure` for non-interactive commands. The `clj` wrapper also works when
 
 See `docs/REPRODUCIBILITY.md`.
 
+## Recall rubric
+
+The written rules stamping a provenance path pull / do-not-pull, plus the
+labeled-path fixtures: see `docs/recall-rubric.md`.
+
 ## Security
 
 See `docs/SECURITY.md`.
