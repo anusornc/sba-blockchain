@@ -17,7 +17,6 @@
    [taoensso.timbre :as log]
    [datomic.api :as d]
    [datomic-blockchain.api.middleware :as middleware]
-   [datomic-blockchain.query.sparql :as sparql]
    [datomic-blockchain.query.graph :as graph-query]
    [datomic-blockchain.ontology.kb :as kb]
    [datomic-blockchain.ontology.loader :as loader]

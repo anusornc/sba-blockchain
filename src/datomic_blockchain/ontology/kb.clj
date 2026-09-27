@@ -3,7 +3,7 @@
   High-level operations combining ontology, queries, and graph traversal"
   (:require [taoensso.timbre :as log]
             [datomic.api :as d]
-            [datomic-blockchain.query.sparql :as sparql]
+            [datomic-blockchain.query.provenance :as prov-query]
             [datomic-blockchain.query.graph :as graph]))
 
 ;; ============================================================================
@@ -158,7 +158,7 @@
   ([entity-id]
    (get-provenance (get-db) entity-id))
   ([db entity-id]
-   (let [provenance (sparql/query-provenance db entity-id)]
+   (let [provenance (prov-query/query-provenance db entity-id)]
      (mapv (fn [[entity activity agent]]
              {:entity entity
               :activity activity
@@ -174,7 +174,7 @@
   ([product-id]
    (get-supply-chain-history (get-db) product-id))
   ([db product-id]
-   (let [history (sparql/query-product-history db product-id)]
+   (let [history (prov-query/query-product-history db product-id)]
      (sort-by :time (mapv (fn [[entity activity-type location time]]
                             {:entity entity
                              :activity-type activity-type
@@ -189,7 +189,7 @@
    (trace-product-path (get-db) product-id))
   ([db product-id]
    (log/info "Tracing product path:" product-id)
-   (let [path (sparql/query-supply-chain-path db product-id)]
+   (let [path (prov-query/query-supply-chain-path db product-id)]
      (mapv (fn [[step entity activity agent location time]]
              {:step step
               :entity entity
@@ -604,7 +604,7 @@
    (mapv (fn [entity-id]
            (let [entity (graph/get-entity db entity-id)]
              {:entity entity
-              :provenance (sparql/query-provenance db entity-id)}))
+              :provenance (prov-query/query-provenance db entity-id)}))
          entity-ids)))
 
 ;; ============================================================================

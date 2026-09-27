@@ -217,84 +217,6 @@
   (find-path db start-id end-id))
 
 ;; ============================================================================
-;; PROV-O Specific Traversals
-;; ============================================================================
-
-(defn trace-provenance
-  "Trace provenance of an entity: find what generated it
-  Returns chain: entity -> activity -> agent"
-  [db entity-id]
-  (d/q '[:find [?entity ?activity ?agent]
-         :in $ ?entity-id
-         :where
-         [?entity :prov/entity ?entity-id]
-         [?entity :prov/wasGeneratedBy ?activity]
-         [?activity :prov/wasAssociatedWith ?agent]]
-       db
-       entity-id))
-
-(defn trace-derivations
-  "Trace all derivations from an entity
-  Returns entities that were derived from this one"
-  [db entity-id]
-  ;; Use :find [?derived ...] to get all results, not just one
-  (d/q '[:find [?derived ...]
-         :in $ ?entity-id
-         :where
-         [?derived :prov/wasDerivedFrom ?entity-id]]
-       db
-       entity-id))
-
-(defn trace-activity-chain
-  "Trace chain of activities that used/derived an entity"
-  [db entity-id]
-  ;; Returns vector of [activity time agent] tuples
-  (vec (d/q '[:find ?activity ?time ?agent
-              :in $ ?entity-id
-              :where
-              [?activity :prov/used ?entity-id]
-              [?activity :prov/startedAtTime ?time]
-              [?activity :prov/wasAssociatedWith ?agent]]
-            db
-            entity-id)))
-
-(defn trace-supply-chain
-  "Trace complete supply chain path for a product
-  Returns ordered list from origin to destination"
-  [db product-entity-id]
-  (log/info "Tracing supply chain for product:" product-entity-id)
-  (let [path (find-path db product-entity-id product-entity-id)]
-    (when path
-      (mapv (fn [entity-id]
-              (let [entity (get-entity db entity-id)]
-                {:id entity-id
-                 :type (:prov/entity-type entity)
-                 :data entity}))
-            path))))
-
-(defn trace-full-history
-  "Get complete history of an entity through time
-  Includes all activities and agents involved"
-  [db entity-id]
-  (log/info "Getting full history for entity:" entity-id)
-  (let [history (d/q '[:find [?entity ?activity ?agent ?time ?op]
-                       :in $ ?entity-id
-                       :where
-                       [?entity :prov/entity ?entity-id]
-                       [?entity :prov/wasGeneratedBy ?activity]
-                       [?activity :prov/wasAssociatedWith ?agent]
-                       [?activity :prov/startedAtTime ?time]]
-                     db
-                     entity-id)]
-    (mapv (fn [[entity activity agent time op]]
-            {:entity entity
-             :activity activity
-             :agent agent
-             :time time
-             :operation op})
-          history)))
-
-;; ============================================================================
 ;; Graph Statistics
 ;; ============================================================================
 
@@ -458,14 +380,6 @@
   (let [entity-ids (get-descendants db start-entity-id max-depth)]
     (build-graph-data db (conj entity-ids start-entity-id))))
 
-(defn build-provenance-graph
-  "Build provenance graph for an entity
-  Shows all ancestors that contributed to this entity"
-  [db entity-id max-depth]
-  (log/info "Building provenance graph for" entity-id)
-  (let [ancestor-ids (get-ancestors db entity-id max-depth)]
-    (build-graph-data db (conj ancestor-ids entity-id))))
-
 ;; ============================================================================
 ;; Utility Functions
 ;; ============================================================================
@@ -580,11 +494,5 @@
   ;; Find path
   (find-path db entity-a entity-b)
 
-  ;; Trace provenance
-  (trace-provenance db product-id)
-
   ;; Build subgraph for visualization
-  (build-subgraph-legacy db product-id 3)
-
-  ;; Build provenance graph
-  (build-provenance-graph db product-id 5))
+  (build-subgraph-legacy db product-id 3))

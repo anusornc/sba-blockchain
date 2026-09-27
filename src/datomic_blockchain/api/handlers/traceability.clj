@@ -3,9 +3,9 @@
   (:require [taoensso.timbre :as log]
             [datomic.api :as d]
             [datomic-blockchain.api.handlers.common :as common]
-            [datomic-blockchain.query.sparql :as sparql]
+            [datomic-blockchain.query.provenance :as prov-query]
             [datomic-blockchain.query.graph :as graph]
-            [datomic-blockchain.traceability.confidence :as completeness])
+            [datomic-blockchain.traceability.completeness :as completeness])
   (:import [java.util UUID]))
 
 (defn- request-param
@@ -38,7 +38,7 @@
 
 (defn- product-history
   [db product-uuid]
-  (->> (or (sparql/query-product-history db product-uuid) [])
+  (->> (or (prov-query/query-product-history db product-uuid) [])
        (mapv #(format-history-tuple db %))
        (sort-by :time)
        vec))
@@ -117,22 +117,11 @@
 
     :else nil))
 
-(defn- completeness-view
-  "Public completeness score and named missing evidence for a provenance path."
-  [db entity-id]
-  (let [result (completeness/provenance-confidence db entity-id {})]
-    (if (:error result)
-      {:completeness-score 0.0
-       :missing-evidence []}
-      (let [best (get-in result [:confidence :best-path])
-            score (double (or (:confidence best) 0.0))
-            missing (->> (or (:hops best) [])
-                         (mapcat :missing)
-                         (map name)
-                         distinct
-                         vec)]
-        {:completeness-score score
-         :missing-evidence missing}))))
+(defn- completeness-fields
+  "Completeness score and named missing evidence from the assessment
+   interface, in the response-payload shape."
+  [assessment]
+  (select-keys assessment [:completeness-score :missing-evidence]))
 
 ;; ============================================================================
 ;; Traceability Handlers
@@ -146,18 +135,14 @@
           db (d/db connection)]
       (log/info "Trace product:" product-id)
       (if-let [product-uuid (resolve-product-uuid db product-id)]
-        (let [history (product-history db product-uuid)]
+        (let [history (product-history db product-uuid)
+              assessment (completeness/assess-completeness db product-uuid)]
           (common/success
            (merge {:product-id (str product-uuid)
                    :history history
                    :events (count history)}
-                  (completeness-view db product-uuid))))
-        (common/success
-         {:product-id product-id
-          :history []
-          :events 0
-          :completeness-score 0.0
-          :missing-evidence []})))))
+                  (completeness-fields assessment))))
+        (common/not-found "Product" product-id)))))
 
 (defn handle-get-provenance
   "Get provenance information for entity"
@@ -167,7 +152,7 @@
           db (d/db connection)]
       (log/info "Get provenance for:" entity-id)
       (let [entity-uuid (UUID/fromString entity-id)
-            provenance (->> (or (sparql/query-provenance db entity-uuid) [])
+            provenance (->> (or (prov-query/query-provenance db entity-uuid) [])
                             (mapv #(format-provenance-tuple db %)))]
         (common/success
          {:entity-id entity-id
@@ -229,5 +214,6 @@
                              :entity-id (str product-uuid)}
                    :journey {:stages stages}
                    :graph (graph-for-product db product-uuid history entity)}
-                  (completeness-view db product-uuid))))
+                  (completeness-fields
+                   (completeness/assess-completeness db product-uuid)))))
         (common/not-found "Product" (or qr-code batch-id))))))

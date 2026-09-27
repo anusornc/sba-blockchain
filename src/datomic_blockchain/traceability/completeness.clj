@@ -1,8 +1,16 @@
-(ns datomic-blockchain.traceability.confidence
-  "Provenance confidence scoring with explainable evidence.
+(ns datomic-blockchain.traceability.completeness
+  "Completeness assessment of a provenance path.
 
-  Computes confidence for provenance paths based on completeness and
-  temporal consistency of PROV-O evidence."
+  THE definition of a provenance path in this companion: the derivation
+  chain (:prov/wasDerivedFrom) enumerated from an entity, each hop's
+  evidence read from the hop entity's :prov/wasGeneratedBy activity,
+  its :prov/wasAssociatedWith agents, and the activity's time bounds.
+  The recall rubric stamps this shape; history/graph views are adapters
+  over the same relations.
+
+  assess-completeness is the public interface — the score and named
+  missing evidence in the shape handlers and the evaluation harness
+  consume. score-provenance-paths is the path-level seam underneath it."
   (:require [taoensso.timbre :as log]
             [clojure.string :as str]
             [datomic.api :as d]
@@ -121,22 +129,18 @@
        :agents agents})))
 
 (defn- evidence-for-context
-  [context weights opts]
+  [context weights]
   (let [{:keys [entity activity agents]} context
         started (:prov/startedAtTime activity)
         ended (:prov/endedAtTime activity)
-        policy-fn (:policy-fn opts)
-        policy-present (when policy-fn
-                         (boolean (policy-fn entity)))
         signals {:entity-present (boolean entity)
                  :entity-type (when entity (some? (:prov/entity-type entity)))
                  :activity-present (boolean activity)
-                 :agent-present (when activity (seq agents))
+                 :agent-present (when activity (boolean (seq agents)))
                  :time-start-present (when activity (some? started))
                  :time-order-valid (when activity
                                      (and started ended
-                                          (not (.after ^Date started ^Date ended))))
-                 :policy-present policy-present}
+                                          (not (.after ^Date started ^Date ended))))}
         weights (normalize-weights weights)
         scoring (score-signals signals weights)]
     (merge scoring
@@ -187,8 +191,7 @@
         scored (mapv (fn [path]
                        (let [hops (mapv #(evidence-for-context
                                            (resolver %)
-                                           weights
-                                           opts)
+                                           weights)
                                         path)
                              avg-score (if (seq hops)
                                          (/ (reduce + (map :score hops))
@@ -203,8 +206,9 @@
      :best-path (first ranked)
      :path-count (count ranked)}))
 
-(defn provenance-confidence
-  "Compute confidence scores for provenance paths starting at entity id."
+(defn- assess-paths
+  "Path-level detail under assess-completeness: ranked paths with per-hop
+   evidence, starting at entity id."
   [db entity-id opts]
   (let [entity-eid (resolve-entity-id db entity-id)]
     (if (nil? entity-eid)
@@ -220,3 +224,44 @@
         {:entity-id entity-eid
          :prov-entity-id (:prov/entity entity)
          :confidence result}))))
+
+(defn assess-completeness
+  "Completeness score and named missing evidence for a provenance path —
+   the interface the QR interface, the authenticated trace, and the
+   labeled-path evaluation harness all call.
+
+   Returns:
+     {:status :assessed | :entity-absent
+      :completeness-score double in [0 1]      ; 0.0 when :entity-absent
+      :missing-evidence vector of signal-name strings from the best path
+      :path-count how many provenance paths were found}
+
+   Contract the recall rubric must encode:
+   - Weights default to default-weights (the published six-signal
+     calibration); pass {:weights {...}} to override or zero a signal
+     for ablation.
+   - A signal that cannot be evaluated because its prerequisite evidence
+     is absent (agent, start time, time-order when there is no generating
+     activity) is unknown, not missing: it is excluded from the
+     denominator. A hop with no generating activity therefore scores
+     0.5, not 0."
+  ([db entity-id]
+   (assess-completeness db entity-id {}))
+  ([db entity-id opts]
+   (let [result (assess-paths db entity-id opts)]
+     (if (:error result)
+       {:status :entity-absent
+        :completeness-score 0.0
+        :missing-evidence []
+        :path-count 0}
+       (let [best (get-in result [:confidence :best-path])
+             score (double (or (:confidence best) 0.0))
+             missing (->> (or (:hops best) [])
+                          (mapcat :missing)
+                          (map name)
+                          distinct
+                          vec)]
+         {:status :assessed
+          :completeness-score score
+          :missing-evidence missing
+          :path-count (get-in result [:confidence :path-count] 0)})))))
