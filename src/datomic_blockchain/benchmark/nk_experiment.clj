@@ -44,11 +44,20 @@
   [id-str]
   (UUID/nameUUIDFromBytes (.getBytes ^String id-str "UTF-8")))
 
+(defn- stable-seed
+  "Long seed derived from a SHA-256 of the cell string. String.hashCode
+   seeds are arithmetic-progression correlated, and java.util.Random's
+   first outputs then fall on a lattice (measured defect rate 0.225
+   where 0.15 was configured); hashing decorrelates consecutive cells."
+  ^long [^String s]
+  (let [digest (.digest (java.security.MessageDigest/getInstance "SHA-256")
+                        (.getBytes s "UTF-8"))]
+    (.getLong (java.nio.ByteBuffer/wrap digest))))
+
 (defn- chain-rng
-  "Deterministic RNG for one (seed, n, k, trial) cell. String hashCode
-   is stable across JVMs and platforms."
+  "Deterministic RNG for one (seed, n, k, trial) cell."
   [seed n k trial]
-  (Random. (long (.hashCode ^String (str "nk-completeness/" seed "/" n "/" k "/" trial)))))
+  (Random. (stable-seed (str "nk-completeness/" seed "/" n "/" k "/" trial))))
 
 ;; =============================================================================
 ;; Chain generation (transactable PROV)
