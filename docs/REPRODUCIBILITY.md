@@ -32,6 +32,19 @@ services or Clojure commands. Start the SBA API and load the public sample data
 before running the query harness. The `/api/query` calls require a valid JWT in
 `API_TOKEN`; the public QR trace route does not require authentication.
 
+NK completeness experiment (one command regenerates the summary CSV, raw rows,
+and manifest under `benchmarks/reproducibility/nk/out/`):
+
+```bash
+bash benchmarks/reproducibility/nk/run_nk_completeness_experiment.bash
+```
+
+The experiment varies interdependency K (derivation depth) and component count
+N, generates provenance chains with a seeded per-hop defect rate, and records
+the completeness score and the rubric's pull / do-not-pull decision per path.
+The seed, defect rate, grid, and trial count are recorded in the manifest, so
+runs are deterministic given the commit.
+
 Query harness:
 
 ```bash

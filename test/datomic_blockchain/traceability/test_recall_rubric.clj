@@ -35,6 +35,20 @@
         (is (= :pull (:decision stamped)) (str defect " stamps pull"))
         (is (string? (:rationale stamped)) (str defect " carries a rationale"))))))
 
+(deftest rubric-stamps-from-named-evidence-test
+  (testing "the rule operationalized for generated paths: no named
+            evidence defects means do-not-pull; any named defect pulls"
+    (let [clean (recall-rubric/decision-for-evidence [])]
+      (is (= :do-not-pull (:decision clean)))
+      (is (string? (:rationale clean))))
+    (doseq [evidence [["activity-present"]
+                      ["agent-present"]
+                      ["time-start-present"]
+                      ["time-order-valid"]
+                      ["entity-present" "agent-present"]]]
+      (is (= :pull (:decision (recall-rubric/decision-for-evidence evidence)))
+          (str evidence " pulls")))))
+
 ;; =============================================================================
 ;; Labeled paths load as fixtures
 ;; =============================================================================

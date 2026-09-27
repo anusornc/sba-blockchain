@@ -46,6 +46,19 @@
        :rationale (str "Unknown path label " label
                        ": undocumented evidence, pull precautionarily.")}))
 
+(defn decision-for-evidence
+  "The rubric rule operationalized for generated paths (the NK
+   experiment): stamp from the named missing evidence the assessment
+   reports — no named defects is do-not-pull, any named defect pulls.
+   Reads only the names, never the 0-1 score."
+  [missing-evidence]
+  (if (seq missing-evidence)
+    {:decision :pull
+     :rationale (str "Named evidence defects: "
+                     (clojure.string/join ", " (map str missing-evidence))
+                     ". Pull until the evidence is complete.")}
+    (get rubric :complete)))
+
 (defn labeled-paths!
   "Load the labeled-path fixtures into conn and return them stamped:
 

@@ -29,7 +29,9 @@
         ;; System components
         integrant/integrant {:mvn/version "0.8.0"}}
 
- :aliases {:dev {:extra-paths ["dev"]
+ :aliases {:nk-experiment {:main-opts ["-m" "datomic-blockchain.benchmark.nk-experiment"]}
+
+           :dev {:extra-paths ["dev"]
                  :extra-deps {org.clojure/tools.namespace {:mvn/version "1.4.4"}
                               criterium/criterium {:mvn/version "0.4.6"}}}
 
