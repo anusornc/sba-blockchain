@@ -14,8 +14,9 @@
   (:require [taoensso.timbre :as log]
             [clojure.string :as str]
             [datomic.api :as d]
-            [datomic-blockchain.query.graph :as graph])
-  (:import [java.util UUID Date]))
+            [datomic-blockchain.query.graph :as graph]
+            [datomic-blockchain.query.provenance :as prov-query])
+  (:import [java.util Date]))
 
 ;; ============================================================================
 ;; Configuration
@@ -40,19 +41,11 @@
   [db entity-id]
   (cond
     (uuid? entity-id)
-    (d/q '[:find ?e .
-           :in $ ?id
-           :where [?e :prov/entity ?id]]
-         db entity-id)
+    (prov-query/entity-eid-by-uuid db entity-id)
 
     (string? entity-id)
-    (let [uuid (try
-                 (UUID/fromString entity-id)
-                 (catch Exception _e nil))]
-      (when uuid
-        (resolve-entity-id db uuid)))
-
-    (number? entity-id) entity-id
+    (when-let [uuid (prov-query/parse-uuid-safe entity-id)]
+      (resolve-entity-id db uuid))
 
     :else entity-id))
 

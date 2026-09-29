@@ -20,6 +20,8 @@ private repository history.
 - `benchmarks/current/` - current benchmark harnesses
 - `benchmarks/current/openfda-food/run_product_equivalent_reruns.bash` - product-equivalent openFDA benchmark panel
 - `benchmarks/real-world/artifacts/` - public-safe openFDA artifact packages
+- `frontend/ontology-traceability/` - read-only traceability visualization frontend
+- `frontend/e2e/tests/ontology-traceability.spec.ts` - browser smoke test for the visualization frontend
 - `docs/LIMITATIONS.md` - evidence boundaries and production-readiness gaps
 
 The private work repository keeps broader project notes under `docs/current/`,
@@ -30,10 +32,10 @@ security instructions are generated into this repository during export.
 
 ## Datomic Dependency Notice
 
-This public companion resolves `com.datomic/peer` from Maven Central for local
-tests and demo use. If you run a full Datomic Pro transactor or external
-storage setup, follow Datomic's deployment documentation and keep generated
-runtime state outside version control.
+This public companion resolves the Datomic Free peer from Clojars for
+local tests and demo use. If you run a full Datomic Pro transactor or
+external storage setup, follow Datomic's deployment documentation and
+keep generated runtime state outside version control.
 
 ## Run Tests
 
@@ -45,14 +47,23 @@ clojure -M:test
 Use `clojure` for non-interactive commands. The `clj` wrapper also works when
 `rlwrap` is installed.
 
+## Ontology Traceability Frontend
+
+The React frontend is a read-only companion for inspecting SBA trace graphs. It
+uses `GET /api/ui/trace/{code}?kind=qr|batch` and `GET /api/ui/ontology`.
+
+```bash
+cd frontend/ontology-traceability
+npm install
+VITE_SBA_API_BASE_URL=http://127.0.0.1:3000 npm run build
+```
+
+This frontend is visualization/inspection evidence only. It is not a benchmark
+harness and must not be cited as throughput or latency evidence.
+
 ## Reproducibility
 
 See `docs/REPRODUCIBILITY.md`.
-
-## Recall rubric
-
-The written rules stamping a provenance path pull / do-not-pull, plus the
-labeled-path fixtures: see `docs/recall-rubric.md`.
 
 ## Security
 

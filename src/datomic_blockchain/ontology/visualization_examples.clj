@@ -14,7 +14,7 @@
   Returns JSON-serializable map with nodes and links
 
   Example usage:
-    (def kg (kb/build-kg [entity-id] 2))
+    (def kg (kb/build-kg (d/db conn) [entity-id] 2))
     (d3-force-layout-data kg)
     ;; => {:nodes [{:id \"...\" :name \"...\" :group \"entity\"}]
     ;;     :links [{:source \"...\" :target \"...\" :value 1}]}
@@ -80,7 +80,7 @@
   Returns {:elements [{:data {:id ...}} ...]}
 
   Example usage:
-    (def kg (kb/build-kg [entity-id] 2))
+    (def kg (kb/build-kg (d/db conn) [entity-id] 2))
     (cytoscape-elements kg)
     ;; => {:elements [{:data {:id \"...\" :label \"...\" :type \"entity\"}}
     ;;           {:data {:source \"...\" :target \"...\" :label \"wasDerivedFrom\"}}]}
@@ -141,7 +141,7 @@
   Returns string that can be saved to .dot file and rendered
 
   Example usage:
-    (def kg (kb/build-kg [entity-id] 2))
+    (def kg (kb/build-kg (d/db conn) [entity-id] 2))
     (spit \"graph.dot\" (export-dot-graph kg))
     ;; Then run: dot -Tpng graph.dot -o graph.png
   "
@@ -216,7 +216,7 @@
   Returns HTML string that can be saved and opened in browser
 
   Example usage:
-    (def kg (kb/build-kg [entity-id] 2))
+    (def kg (kb/build-kg (d/db conn) [entity-id] 2))
     (spit \"viz.html\" (export-html-d3 kg))
   "
   [kg]
@@ -296,7 +296,7 @@
   Returns HTML string with interactive network visualization
 
   Example usage:
-    (def kg (kb/build-kg [entity-id] 2))
+    (def kg (kb/build-kg (d/db conn) [entity-id] 2))
     (spit \"viz-cytoscape.html\" (export-html-cytoscape kg))
   "
   [kg]
@@ -390,12 +390,10 @@
   (require '[datomic-blockchain.ontology.kb :as kb])
   (require '[datomic-blockchain.ontology.visualization-examples :as viz])
 
-  ;; Initialize KB
-  (kb/init-kb (dev/conn))
-
-  ;; Build knowledge graph from entity
+  ;; Build knowledge graph from an entity (every op takes its deps)
+  (def conn (dev/conn))
   (def entity-id some-uuid)
-  (def kg (kb/build-kg [entity-id] 2))
+  (def kg (kb/build-kg (d/db conn) [entity-id] 2))
 
   ;; Get graph statistics
   (viz/analyze-graph kg)

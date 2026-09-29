@@ -273,6 +273,65 @@ paths:
               schema:
                 $ref: '#/components/schemas/QRTraceResponse'
 
+  /api/ui/trace/{code}:
+    get:
+      tags:
+        - Traceability
+      summary: Get frontend trace graph
+      description: Public read-only traceability contract normalized for the ontology visualization frontend.
+      operationId: getUiTrace
+      parameters:
+        - name: code
+          in: path
+          required: true
+          description: QR code or batch identifier
+          schema:
+            type: string
+        - name: kind
+          in: query
+          required: false
+          description: Lookup kind. Defaults to qr.
+          schema:
+            type: string
+            enum:
+              - qr
+              - batch
+            default: qr
+      responses:
+        '200':
+          description: Frontend trace graph view model
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UITraceResponse'
+        '400':
+          description: Unsupported lookup kind or invalid input
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Trace code not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/ui/ontology:
+    get:
+      tags:
+        - Ontology
+      summary: Get frontend ontology vocabulary
+      description: Public read-only ontology vocabulary used by the ontology traceability frontend for legends and filters.
+      operationId: getUiOntology
+      responses:
+        '200':
+          description: Frontend ontology vocabulary
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UIOntologyResponse'
+
   /api/provenance/{id}:
     get:
       tags:
@@ -691,6 +750,109 @@ components:
               type: object
             graph:
               type: object
+
+    UITraceNode:
+      type: object
+      properties:
+        id:
+          type: string
+        label:
+          type: string
+        type:
+          type: string
+          enum:
+            - entity
+            - activity
+            - agent
+            - location
+            - evidence
+            - identifier
+        ontology-class:
+          type: string
+          example: prov:Entity
+        attributes:
+          type: object
+
+    UITraceEdge:
+      type: object
+      properties:
+        id:
+          type: string
+        source:
+          type: string
+        target:
+          type: string
+        label:
+          type: string
+          example: prov:wasGeneratedBy
+        type:
+          type: string
+        prov-relation:
+          type: string
+          example: prov:wasGeneratedBy
+        attributes:
+          type: object
+
+    UITraceResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          type: object
+          properties:
+            contract-version:
+              type: string
+              example: '2026-05-02'
+            source:
+              type: string
+              example: deterministic-uht-dataset
+            query:
+              type: object
+              properties:
+                kind:
+                  type: string
+                code:
+                  type: string
+            product:
+              type: object
+            stages:
+              type: array
+              items:
+                type: object
+            graph:
+              type: object
+              properties:
+                nodes:
+                  type: array
+                  items:
+                    $ref: '#/components/schemas/UITraceNode'
+                edges:
+                  type: array
+                  items:
+                    $ref: '#/components/schemas/UITraceEdge'
+
+    UIOntologyResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          type: object
+          properties:
+            contract-version:
+              type: string
+              example: '2026-05-02'
+            prefixes:
+              type: object
+            classes:
+              type: array
+              items:
+                type: object
+            properties:
+              type: array
+              items:
+                type: object
 
     ProvenanceResponse:
       type: object

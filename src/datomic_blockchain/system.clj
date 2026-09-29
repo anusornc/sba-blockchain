@@ -45,6 +45,7 @@
    :cluster/member {:config (ig/ref :datomic/config)}
    :http/server {:connection (ig/ref :datomic/connection)
                  :policy-store (ig/ref :permission/policy-store)
+                 :config (ig/ref :datomic/config)
                  :port 3000}})
 
 (defn system-config
@@ -66,9 +67,10 @@
 
 ;; Datomic Configuration
 (defmethod ig/init-key :datomic/config
-  [_ _]
+  [_ provided]
   (log/info "Initializing Datomic configuration...")
-  (config/load-config))
+  (let [loaded (config/load-config)]
+    (if (map? provided) (merge loaded provided) loaded)))
 
 ;; Datomic Connection
 (defmethod ig/init-key :datomic/connection
@@ -115,9 +117,9 @@
 
 ;; HTTP Server
 (defmethod ig/init-key :http/server
-  [_ {:keys [connection policy-store port]}]
+  [_ {:keys [connection policy-store config port]}]
   (log/info "Starting HTTP server on port" port "...")
-  (let [server-map (api/start-server connection policy-store port)]
+  (let [server-map (api/start-server connection policy-store config port)]
     (log/info "HTTP server started on port" port)
     server-map))
 
@@ -264,17 +266,22 @@
 ;; ============================================================================
 
 (defn -main
-  "Production entry point using Integrant system.
-   
-   This is an alternative to core.clj that uses the component system.
-   Eventually, core.clj should be refactored to use this.
-   
+  "Production entry point using the Integrant system (ADR-0001: the
+   single wiring; core.clj delegates here).
+
+   Profile: explicit argument wins, then the PROFILE env var, then :prod.
+   The PORT env var overrides the configured port.
+
    Usage:
      clj -M -m datomic-blockchain.system"
-  [& args]
-  (let [profile (keyword (or (System/getenv "PROFILE") "prod"))
-        port (some-> (System/getenv "PORT") Integer/parseInt)
-        system (start profile (when port {:port port}))]
+  ([]
+   (-main nil))
+  ([profile-override]
+   (let [profile (or profile-override
+                     (some-> (System/getenv "PROFILE") keyword)
+                     :prod)
+         port (some-> (System/getenv "PORT") Integer/parseInt)
+         system (start profile (when port {:port port}))]
     
     ;; Add shutdown hook
     (.addShutdownHook
@@ -288,7 +295,7 @@
           jetty-server (:server server)]
       (while (and jetty-server (.isStarted jetty-server))
         (Thread/sleep 60000)
-        (log/debug "System heartbeat")))))
+        (log/debug "System heartbeat"))))))
 
 (comment
   ;; Development workflow example

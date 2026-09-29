@@ -28,12 +28,14 @@
       (log/info "Get ontology:" ontology-id)
       ;; Query actual ontology from Datomic
       (if-let [db (when connection (d/db connection))]
-        (let [ontology (d/pull db '[*] ontology-id)]
-          (if ontology
+        ;; pull on an absent entity returns a truthy near-empty map,
+        ;; so existence is checked through the entity itself
+        (if-let [_entity (d/entity db ontology-id)]
+          (let [ontology (d/pull db '[*] ontology-id)]
             (common/success
              {:ontology-id ontology-id
               :name (:ontology/name ontology)
               :classes (:ontology/classes ontology)
-              :properties (:ontology/properties ontology)})
-            (common/not-found "Ontology" ontology-id)))
+              :properties (:ontology/properties ontology)}))
+          (common/not-found "Ontology" ontology-id))
         (common/error "Database not connected" 503)))))

@@ -19,10 +19,9 @@
       (log/info "Check permission:" resource-id "for" requestor-id)
 
       (if policy-store
-        (let [result (policy/can-access? policy-store
-                                        resource-id
-                                        requestor-id
-                                        action)]
+        (let [result (policy/can-access? resource-id
+                                         {:requestor-id requestor-id
+                                          :requested-action action})]
           (common/success
            {:resource-id resource-id
             :requestor-id requestor-id

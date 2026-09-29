@@ -2,20 +2,11 @@
   "Tests for the NK completeness experiment: chains that vary with N and
   K are generated as transactable PROV, scored through the public
   completeness interface, and stamped by the rubric."
-  (:require [clojure.test :refer [deftest is testing]]
+  (:require [clojure.test :refer [deftest is testing use-fixtures]]
             [datomic.api :as d]
             [datomic-blockchain.benchmark.nk-experiment :as nkx]
-            [datomic-blockchain.datomic.schema :as schema])
+            [datomic-blockchain.test-support :as ts])
   (:import [java.util UUID]))
-
-(defn- fresh-conn
-  []
-  (let [uri (str "datomic:mem://nk-experiment-test-" (UUID/randomUUID))]
-    (d/delete-database uri)
-    (d/create-database uri)
-    (let [conn (d/connect uri)]
-      @(d/transact conn schema/full-schema)
-      conn)))
 
 (defn- assess-generated-chain
   "Generate one chain for [n k trial] with the given defect rate, seed it,
@@ -25,24 +16,26 @@
                                                          :defect-rate defect-rate})]
     (nkx/assess-chain (d/db conn) start-entity-id)))
 
+(use-fixtures :each (fn [f] (f) (ts/retire-all!)))
+
 (deftest generated-chains-are-scoreable-test
   (testing "a clean generated chain (defect rate 0) is a complete
             provenance path: score 1.0, no named defects"
-    (let [conn (fresh-conn)
+    (let [conn (ts/fresh-conn)
           result (assess-generated-chain conn 5 3 0 0.0)]
       (is (= :assessed (:status result)))
       (is (= 1.0 (:completeness-score result)))
       (is (= [] (:missing-evidence result)))))
   (testing "a fully defective chain (defect rate 1) names evidence and
             scores below 1.0 on every hop"
-    (let [conn (fresh-conn)
+    (let [conn (ts/fresh-conn)
           result (assess-generated-chain conn 5 3 0 1.0)]
       (is (= :assessed (:status result)))
       (is (seq (:missing-evidence result)))
       (is (< (:completeness-score result) 1.0))))
   (testing "K sets the derivation depth: k=0 is a single hop, k=3 walks
             four entities"
-    (let [conn (fresh-conn)]
+    (let [conn (ts/fresh-conn)]
       (is (= 1 (:path-count (assess-generated-chain conn 5 0 0 0.0))))
       (let [{:keys [start-entity-id]} (nkx/seed-chain! conn {:n 5 :k 3 :trial 0
                                                              :defect-rate 0.0})

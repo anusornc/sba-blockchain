@@ -6,6 +6,12 @@ target/
 out/
 node_modules/
 resources/public/js/
+frontend/e2e/node_modules/
+frontend/e2e/playwright-report/
+frontend/e2e/test-results/
+frontend/ontology-traceability/dist/
+frontend/ontology-traceability/node_modules/
+frontend/ontology-traceability/tsconfig.tsbuildinfo
 .tools/
 .home/
 .codex
@@ -20,10 +26,3 @@ crypto-config/
 wallet/
 keystore*
 benchmarks/real-world/results/
-
-# Local non-code artifacts: agent workspace, issue tracker, knowledge bundle
-.scratch/
-AGENTS.md
-docs/agents/
-docs/adr/
-okf/

@@ -5,27 +5,15 @@
             [datomic-blockchain.api.handlers.common :as common]
             [datomic-blockchain.query.provenance :as prov-query]
             [datomic-blockchain.query.graph :as graph]
-            [datomic-blockchain.traceability.completeness :as completeness])
-  (:import [java.util UUID]))
+            [datomic-blockchain.traceability.completeness :as completeness]
+            [datomic-blockchain.traceability.journey :as journey]
+            [datomic-blockchain.traceability.ui-contract :as ui-contract]))
 
 (defn- request-param
   "Read a request param by keyword or string key."
   [params k]
   (or (get params k)
       (get params (name k))))
-
-(defn- resolve-product-uuid
-  "Resolve a product identifier (UUID string or batch id) to a PROV entity UUID."
-  [db product-id]
-  (or (common/parse-uuid-safe product-id)
-      (when (uuid? product-id) product-id)
-      (d/q '[:find ?pid .
-             :in $ ?batch
-             :where
-             [?e :traceability/batch ?batch]
-             [?e :prov/entity ?pid]]
-           db
-           product-id)))
 
 (defn- format-history-tuple
   [db [_entity-eid activity-eid activity-type agent-name time location]]
@@ -100,23 +88,6 @@
     {:nodes (unique-nodes (concat (:nodes subgraph) [product-node] activity-nodes))
      :edges (vec (concat (:edges subgraph) history-edges))}))
 
-(defn- find-product-eid
-  [db qr-code batch-id]
-  (cond
-    qr-code
-    (d/q '[:find ?e .
-           :in $ ?qr
-           :where [?e :traceability/qr-code ?qr]]
-         db qr-code)
-
-    batch-id
-    (d/q '[:find ?e .
-           :in $ ?batch
-           :where [?e :traceability/batch ?batch]]
-         db batch-id)
-
-    :else nil))
-
 (defn- completeness-fields
   "Completeness score and named missing evidence from the assessment
    interface, in the response-payload shape."
@@ -134,7 +105,7 @@
     (let [product-id (get-in request [:params :id])
           db (d/db connection)]
       (log/info "Trace product:" product-id)
-      (if-let [product-uuid (resolve-product-uuid db product-id)]
+      (if-let [product-uuid (prov-query/resolve-product-uuid db product-id)]
         (let [history (product-history db product-uuid)
               assessment (completeness/assess-completeness db product-uuid)]
           (common/success
@@ -151,7 +122,7 @@
     (let [entity-id (get-in request [:params :id])
           db (d/db connection)]
       (log/info "Get provenance for:" entity-id)
-      (let [entity-uuid (UUID/fromString entity-id)
+      (let [entity-uuid (common/validate-uuid-param :id entity-id)
             provenance (->> (or (prov-query/query-provenance db entity-uuid) [])
                             (mapv #(format-provenance-tuple db %)))]
         (common/success
@@ -165,15 +136,8 @@
     (let [entity-id (get-in request [:params :id])
           db (d/db connection)]
       (log/info "Get timeline for:" entity-id)
-      (let [entity-uuid (UUID/fromString entity-id)
-            self (d/q '[:find ?e .
-                        :in $ ?id
-                        :where [?e :prov/entity ?id]]
-                      db entity-uuid)
-            ancestors (or (graph/get-ancestors db entity-uuid) #{})
-            descendants (or (graph/get-descendants db entity-uuid) #{})
-            events (->> (cond-> (concat ancestors descendants)
-                          self (conj self))
+      (let [entity-uuid (common/validate-uuid-param :id entity-id)
+            events (->> (prov-query/timeline-eids db entity-uuid)
                         (map #(timeline-event db %))
                         (sort-by :timestamp)
                         vec)]
@@ -196,17 +160,11 @@
                         {:error :missing-param
                          :status 400
                          :message "Missing query parameter: qr or batch"})))
-      (if-let [entity-eid (find-product-eid db qr-code batch-id)]
+      (if-let [entity-eid (prov-query/product-eid-by-qr-or-batch db qr-code batch-id)]
         (let [entity (d/entity db entity-eid)
               product-uuid (:prov/entity entity)
               history (product-history db product-uuid)
-              stages (mapv (fn [{:keys [activity-type agent-name time location]}]
-                             {:stage activity-type
-                              :activity activity-type
-                              :agent agent-name
-                              :location location
-                              :time time})
-                           history)]
+              stages (journey/stages-from-ledger db product-uuid)]
           (common/success
            (merge {:product {:batch (:traceability/batch entity)
                              :product (:traceability/product-name entity)
@@ -217,3 +175,23 @@
                   (completeness-fields
                    (completeness/assess-completeness db product-uuid)))))
         (common/not-found "Product" (or qr-code batch-id))))))
+(defn handle-ui-trace
+  "Return the stable read-only frontend trace contract.
+   Public endpoint for ontology traceability visualization."
+  [request _connection]
+  (common/with-error-handling "UI trace"
+    (let [params (:params request)
+          code (common/sanitize-string-param :code (common/get-val params :code) 128)
+          kind (common/sanitize-string-param :kind (common/get-val params :kind) 32)]
+      (when-not (seq code)
+        (throw (ex-info "Missing trace code"
+                        {:error :missing-code
+                         :status 400
+                         :message "Missing trace code"})))
+      (common/success (ui-contract/build-trace-view code kind)))))
+
+(defn handle-ui-ontology
+  "Return the stable frontend ontology vocabulary used by the trace viewer."
+  [_request _connection]
+  (common/with-error-handling "UI ontology"
+    (common/success (ui-contract/ontology-vocabulary))))

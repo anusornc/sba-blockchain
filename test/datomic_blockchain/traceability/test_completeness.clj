@@ -5,25 +5,15 @@
   the labeled-path evaluation harness rely on: the six signals, the
   published weights, the nil-renormalization semantics, and the named
   missing evidence per defect."
-  (:require [clojure.test :refer [deftest is testing]]
+  (:require [clojure.test :refer [deftest is testing use-fixtures]]
             [datomic.api :as d]
-            [datomic-blockchain.datomic.schema :as schema]
+            [datomic-blockchain.test-support :as ts]
             [datomic-blockchain.traceability.completeness :as completeness])
   (:import [java.util UUID]))
 
 ;; =============================================================================
 ;; Fixture: a minimal provenance hop with defect knobs
 ;; =============================================================================
-
-(defn- fresh-conn
-  "In-memory connection with the full schema installed."
-  []
-  (let [uri (str "datomic:mem://confidence-test-" (UUID/randomUUID))]
-    (d/delete-database uri)
-    (d/create-database uri)
-    (let [conn (d/connect uri)]
-      @(d/transact conn schema/full-schema)
-      conn)))
 
 (defn- seed-hop!
   "Seed one provenance hop and return the entity's PROV uuid.
@@ -102,9 +92,11 @@
 ;; The six signals on a complete hop
 ;; =============================================================================
 
+(use-fixtures :each (fn [f] (f) (ts/retire-all!)))
+
 (deftest complete-hop-scores-one-test
   (testing "a fully-evidenced hop scores 1.0 with no missing evidence"
-    (let [conn (fresh-conn)
+    (let [conn (ts/fresh-conn)
           entity-uuid (seed-hop! conn)
           result (assess conn entity-uuid)]
       (is (= :assessed (:status result)))
@@ -120,7 +112,7 @@
   (testing "no generating activity: activity-present is named and the
             nil-renormalization contract holds (unknown signals are
             excluded from the denominator, so the hop scores 0.5 not 0)"
-    (let [conn (fresh-conn)
+    (let [conn (ts/fresh-conn)
           entity-uuid (seed-hop! conn :with-activity? false)
           result (assess conn entity-uuid)]
       (is (= :assessed (:status result)))
@@ -130,7 +122,7 @@
 (deftest missing-agent-defect-test
   (testing "no responsible agent: agent-present is named, score reflects
             the published agent weight of 0.20 over a full denominator"
-    (let [conn (fresh-conn)
+    (let [conn (ts/fresh-conn)
           entity-uuid (seed-hop! conn :with-agent? false)
           result (assess conn entity-uuid)]
       (is (approx= 0.80 (:completeness-score result)))
@@ -139,7 +131,7 @@
 (deftest missing-start-time-defect-test
   (testing "no start time: time-start-present is named and time-order
             becomes unknown (excluded), not missing"
-    (let [conn (fresh-conn)
+    (let [conn (ts/fresh-conn)
           entity-uuid (seed-hop! conn :with-start-time? false)
           result (assess conn entity-uuid)]
       (is (approx= (/ 0.70 0.90) (:completeness-score result)))
@@ -147,7 +139,7 @@
 
 (deftest invalid-time-order-defect-test
   (testing "end before start: time-order-valid is named as missing"
-    (let [conn (fresh-conn)
+    (let [conn (ts/fresh-conn)
           entity-uuid (seed-hop! conn :valid-time-order? false)
           result (assess conn entity-uuid)]
       (is (approx= 0.90 (:completeness-score result)))
@@ -159,7 +151,7 @@
 
 (deftest complete-hop-outranks-defective-hops-test
   (testing "the complete hop scores above every single-defect hop"
-    (let [conn (fresh-conn)
+    (let [conn (ts/fresh-conn)
           complete (assess conn (seed-hop! conn))
           defective [(assess conn (seed-hop! conn :with-activity? false))
                      (assess conn (seed-hop! conn :with-agent? false))
@@ -175,7 +167,7 @@
 (deftest absent-entity-test
   (testing "an entity that does not exist is :entity-absent, distinct from
             an assessed path that happens to be incomplete"
-    (let [conn (fresh-conn)
+    (let [conn (ts/fresh-conn)
           result (assess conn (UUID/randomUUID))]
       (is (= :entity-absent (:status result)))
       (is (approx= 0.0 (:completeness-score result)))
@@ -188,12 +180,12 @@
 
 (deftest multi-hop-path-averages-hop-scores-test
   (testing "a complete child derived from a complete parent scores 1.0 over two hops"
-    (let [conn (fresh-conn)
+    (let [conn (ts/fresh-conn)
           child (assess conn (seed-hop! conn :with-parent? true))]
       (is (= 1 (:path-count child)))
       (is (approx= 1.0 (:completeness-score child)))))
   (testing "a defective parent drags the path average and its defect is named"
-    (let [conn (fresh-conn)
+    (let [conn (ts/fresh-conn)
           child-uuid (seed-hop! conn :with-parent? true :with-parent-agent? false)
           result (assess conn child-uuid)]
       ;; path average of a complete child hop (1.0) and an agent-less
@@ -208,7 +200,7 @@
 (deftest weights-override-is-the-ablation-knob-test
   (testing "zeroing the agent weight lifts the missing-agent hop to 1.0 —
             the documented ablation semantics for the paper"
-    (let [conn (fresh-conn)
+    (let [conn (ts/fresh-conn)
           entity-uuid (seed-hop! conn :with-agent? false)
           default (assess conn entity-uuid)
           ablated (assess conn entity-uuid {:weights {:agent-present 0.0}})]

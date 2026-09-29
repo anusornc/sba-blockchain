@@ -54,20 +54,28 @@
     (when (and value (not (str/blank? value)))
       value)))
 
+(defn- test-mode?
+  "True under the Kaocha test runner (-Dkaocha.test.mode=true), where no
+   real secrets exist and none should be required."
+  []
+  (Boolean/parseBoolean (System/getProperty "kaocha.test.mode")))
+
 (defn validate-env-vars!
   "Validate required environment variables.
   Throws ex-info with descriptive message if validation fails."
   [production-mode?]
   (let [errors (atom [])]
 
-    ;; Check JWT_SECRET (required in all modes per security policy)
+    ;; Check JWT_SECRET (required in all modes per security policy;
+    ;; under the test runner a fixed non-secret stands in)
     (if-let [jwt-secret (check-env-var "JWT_SECRET")]
       (when (< (count jwt-secret) min-jwt-secret-length)
         (swap! errors conj
                (format "JWT_SECRET must be at least %d characters (current: %d)"
                        min-jwt-secret-length (count jwt-secret))))
-      (swap! errors conj
-             (format "JWT_SECRET environment variable not set. Generate one with: openssl rand -base64 64")))
+      (when-not (test-mode?)
+        (swap! errors conj
+               (format "JWT_SECRET environment variable not set. Generate one with: openssl rand -base64 64"))))
 
     ;; Check DATOMIC_DB_NAME (required in production mode)
     (when (and production-mode? (not (check-env-var "DATOMIC_DB_NAME")))

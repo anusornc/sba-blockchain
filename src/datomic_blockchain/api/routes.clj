@@ -1,22 +1,21 @@
 (ns datomic-blockchain.api.routes
-  "REST API routes
-  Defines all API endpoints and routes to handlers"
-  (:require [compojure.core :refer [defroutes GET POST PUT DELETE context routes]]
+  "REST API routes: every handler receives its dependencies explicitly
+   through closures — no dynamic binding (ADR-0001)."
+  (:require [compojure.core :refer [GET POST context routes]]
             [compojure.route :as route]
-            [ring.util.response :as response]
             [taoensso.timbre :as log]
-            [clojure.data.json :as json]
-            [ring.adapter.jetty :as jetty]
+                        [ring.adapter.jetty :as jetty]
             [datomic-blockchain.api.middleware :as middleware]
-            [datomic-blockchain.api.handlers.core :as handlers]
+            [datomic-blockchain.api.handlers.graph :as graph]
+            [datomic-blockchain.api.handlers.traceability :as traceability]
+            [datomic-blockchain.api.handlers.query :as query]
+            [datomic-blockchain.api.handlers.blocks :as blocks]
+            [datomic-blockchain.api.handlers.ontology :as ontology]
+            [datomic-blockchain.api.handlers.permission :as permission]
+            [datomic-blockchain.api.handlers.transactions :as transactions]
+            [datomic-blockchain.api.handlers.cluster :as cluster]
+            [datomic-blockchain.api.handlers.dev :as dev]
             [datomic-blockchain.cluster.member :as member]))
-
-;; ============================================================================
-;; Dynamic Dependencies
-;; ============================================================================
-
-(def ^:dynamic *connection* nil)
-(def ^:dynamic *policy-store* nil)
 
 ;; ============================================================================
 ;; Configuration
@@ -30,18 +29,32 @@
   (not= "false" (System/getenv "TRANSACTION_API_AUTH_REQUIRED")))
 
 ;; ============================================================================
-;; Helper Functions for Authentication
+;; Health and Fallback Handlers
 ;; ============================================================================
 
-(defn error-response
-  "Create an error response map"
-  [error status]
-  {:status status
-   :headers {"Content-Type" "application/json"}
-   :body (json/write-str
-          {:error error
-           :status (if (= status 401) :unauthorized :not-found)
-           :timestamp (str (java.util.Date.))})})
+(defn handle-health
+  "Health check endpoint"
+  [request]
+  (log/info "Health check")
+  (middleware/success-response
+   {:status :healthy
+    :timestamp (java.util.Date.)
+    :version "1.1.0-Refactored"
+    :phase "Handlers Extracted into Modules"}))
+
+(defn handle-not-found
+  "Handle 404 errors"
+  [request]
+  (middleware/error-response "Endpoint not found" 404))
+
+(defn handle-method-not-allowed
+  "Handle 405 errors"
+  [request]
+  (middleware/error-response "Method not allowed" 405))
+
+;; ============================================================================
+;; Helper Functions for Authentication
+;; ============================================================================
 
 (defn require-auth
   "Check authentication and call handler if valid, otherwise return error"
@@ -53,15 +66,15 @@
     (cond
       ;; No token provided
       (nil? auth-token)
-      (error-response "Missing authorization header" 401)
+      (middleware/error-response "Missing authorization header" 401)
 
       ;; Token invalid
       (nil? claims)
-      (error-response "Invalid token" 401)
+      (middleware/error-response "Invalid token" 401)
 
       ;; Token expired
       (and exp (<= exp now))
-      (error-response "Token expired" 401)
+      (middleware/error-response "Token expired" 401)
 
       ;; Token valid - call handler
       :else
@@ -98,120 +111,124 @@
     (cond
       ;; No token provided
       (nil? auth-token)
-      (error-response "Missing authorization header" 401)
+      (middleware/error-response "Missing authorization header" 401)
 
       ;; Token invalid
       (nil? claims)
-      (error-response "Invalid token" 401)
+      (middleware/error-response "Invalid token" 401)
 
       ;; Token expired
       (and exp (<= exp now))
-      (error-response "Token expired" 401)
+      (middleware/error-response "Token expired" 401)
 
       ;; Not an admin - check both keyword and string roles
       (not (or (contains? user-roles :admin)
                (contains? user-roles "admin")))
-      (error-response "Admin privileges required" 403)
+      (middleware/error-response "Admin privileges required" 403)
 
       ;; Token valid and admin - call handler
       :else
       (handler (assoc request :user-claims claims)))))
 
 ;; ============================================================================
-;; Public Routes (No Authentication Required)
+;; Route Tables (functions of the dependencies they close over)
 ;; ============================================================================
 
-(defroutes public-routes
-  ;; Health check - always public
-  (GET "/health" request
-        (handlers/handle-health request))
+(defn public-routes
+  [conn]
+  (routes
+   ;; Health check - always public
+   (GET "/health" request
+        (handle-health request))
 
-  ;; Public traceability for QR code scanning (consumer-facing).
-  ;; Keep the QR lookup on a distinct path so authenticated /api/trace/:id
-  ;; cannot be shadowed by this public route.
-  (GET "/api/trace/qr/:qr" [qr :as request]
-        (handlers/handle-trace-by-qr request)))
+   ;; Public traceability for QR code scanning (consumer-facing).
+   ;; Keep the QR lookup on a distinct path so authenticated /api/trace/:id
+   ;; cannot be shadowed by this public route.
+   (GET "/api/trace/qr/:qr" [qr :as request]
+        (traceability/handle-trace-by-qr request conn))
 
-;; ============================================================================
-;; Development-Only Routes (Only available in non-production mode)
-;; ============================================================================
+   ;; Frontend-oriented public trace contract for the React ontology viewer.
+   (GET "/api/ui/trace/:code" [code :as request]
+        (traceability/handle-ui-trace request conn))
 
-(defroutes development-routes
-  ;; Dev endpoint to load sample data (for demo/testing)
-  (POST "/api/dev/load-sample-data" request
-        (handlers/handle-load-sample-data request))
+   ;; Frontend-oriented ontology vocabulary for legends and filters.
+   (GET "/api/ui/ontology" request
+        (traceability/handle-ui-ontology request conn))))
 
-  ;; Dev endpoint to create test blockchain transactions (for Block Explorer testing)
-  (POST "/api/dev/create-test-blocks" request
-        (handlers/handle-create-test-blocks request)))
+(defn development-routes
+  [conn]
+  (routes
+   ;; Dev endpoint to load sample data (for demo/testing)
+   (POST "/api/dev/load-sample-data" request
+         (dev/handle-load-sample-data request conn))
 
-;; ============================================================================
-;; Optional Auth Routes (Work with or without authentication)
-;; ============================================================================
+   ;; Dev endpoint to create test blockchain transactions (for Block Explorer testing)
+   (POST "/api/dev/create-test-blocks" request
+         (dev/handle-create-test-blocks request conn))))
 
-(defroutes optional-auth-routes
-  ;; Statistics can be accessed without auth (with optional user context)
-  (GET "/api/stats" request
-        (optional-auth handlers/handle-get-stats request))
+(defn optional-auth-routes
+  [conn]
+  (routes
+   ;; Statistics can be accessed without auth (with optional user context)
+   (GET "/api/stats" request
+        (optional-auth (fn [req] (graph/handle-get-stats req conn)) request))
 
-  ;; Block Explorer - public for demo purposes
-  (GET "/api/blocks" request
-        (optional-auth handlers/handle-list-blocks request))
+   ;; Block Explorer - public for demo purposes
+   (GET "/api/blocks" request
+        (optional-auth (fn [req] (blocks/handle-list-blocks req conn)) request))
 
-  (GET "/api/blocks/:id" [id :as request]
-        (optional-auth handlers/handle-get-block request))
+   (GET "/api/blocks/:id" [id :as request]
+        (optional-auth (fn [req] (blocks/handle-get-block req conn)) request))
 
-  ;; Knowledge Graph - public for demo purposes (was authenticated)
-  (GET "/api/graph/:id" [id :as request]
-        (optional-auth handlers/handle-get-graph request))
+   ;; Knowledge Graph - public for demo purposes (was authenticated)
+   (GET "/api/graph/:id" [id :as request]
+        (optional-auth (fn [req] (graph/handle-get-graph req conn)) request))
 
-  ;; Ontology listing - public metadata
-  (GET "/api/ontologies" request
-        (optional-auth handlers/handle-list-ontologies request))
+   ;; Ontology listing - public metadata
+   (GET "/api/ontologies" request
+        (optional-auth (fn [req] (ontology/handle-list-ontologies req conn)) request))
 
-  (GET "/api/ontologies/:id" [id :as request]
-        (optional-auth handlers/handle-get-ontology request)))
+   (GET "/api/ontologies/:id" [id :as request]
+        (optional-auth (fn [req] (ontology/handle-get-ontology req conn)) request))))
 
-;; ============================================================================
-;; Authenticated Routes (JWT Required)
-;; ============================================================================
+(defn authenticated-routes
+  [conn policy-store]
+  (routes
+   ;; Graph endpoints - require auth (entity detail and path finding)
+   (GET "/api/graph/entity/:id" [id :as request]
+        (require-auth (fn [req] (graph/handle-get-entity req conn)) request))
 
-(defroutes authenticated-routes
-  ;; Graph endpoints - require auth (entity detail and path finding)
-  (GET "/api/graph/entity/:id" [id :as request]
-       (require-auth handlers/handle-get-entity request))
+   (GET "/api/graph/path" request
+        (require-auth (fn [req] (graph/handle-find-path req conn)) request))
 
-  (GET "/api/graph/path" request
-       (require-auth handlers/handle-find-path request))
+   ;; Traceability endpoints - require auth
+   (GET "/api/trace/:id" [id :as request]
+        (require-auth (fn [req] (traceability/handle-trace-product req conn)) request))
 
-  ;; Traceability endpoints - require auth
-  (GET "/api/trace/:id" [id :as request]
-       (require-auth handlers/handle-trace-product request))
+   (GET "/api/provenance/:id" [id :as request]
+        (require-auth (fn [req] (traceability/handle-get-provenance req conn)) request))
 
-  (GET "/api/provenance/:id" [id :as request]
-       (require-auth handlers/handle-get-provenance request))
+   (GET "/api/timeline/:id" [id :as request]
+        (require-auth (fn [req] (traceability/handle-get-timeline req conn)) request))
 
-  (GET "/api/timeline/:id" [id :as request]
-       (require-auth handlers/handle-get-timeline request))
+   ;; Query endpoint - require auth (critical security)
+   (POST "/api/query" request
+        (require-auth (fn [req] (query/handle-query req conn)) request))
 
-  ;; Query endpoint - require auth (critical security)
-  (POST "/api/query" request
-        (require-auth handlers/handle-query request))
+   ;; Transaction submission and status API (for cluster benchmarking)
+   ;; Authentication requirement controlled by TRANSACTION_API_AUTH_REQUIRED env var
+   (POST "/api/transactions/submit" request
+        (conditional-auth (fn [req] (transactions/handle-submit-transaction req conn)) request))
 
-  ;; Transaction submission and status API (for cluster benchmarking)
-  ;; Authentication requirement controlled by TRANSACTION_API_AUTH_REQUIRED env var
-  (POST "/api/transactions/submit" request
-        (conditional-auth handlers/handle-submit-transaction request))
+   (GET "/api/transactions/:id/status" [id :as request]
+        (conditional-auth (fn [req] (transactions/handle-transaction-status req conn)) request))
 
-  (GET "/api/transactions/:id/status" request
-       (conditional-auth handlers/handle-transaction-status request))
+   (GET "/api/transactions/pending" request
+        (conditional-auth (fn [req] (transactions/handle-list-pending-transactions req conn)) request))
 
-  (GET "/api/transactions/pending" request
-       (conditional-auth handlers/handle-list-pending-transactions request))
-
-  ;; Permission endpoints - require auth
-  (GET "/api/permissions/check" request
-       (require-auth handlers/handle-check-permission request)))
+   ;; Permission endpoints - require auth
+   (GET "/api/permissions/check" request
+        (require-auth (fn [req] (permission/handle-check-permission req conn policy-store)) request))))
 
 ;; ============================================================================
 ;; Internal Cluster Routes (Node-to-Node Authentication)
@@ -220,72 +237,73 @@
 ;; ============================================================================
 
 (defn verify-node-auth
-  "Check node-to-node authentication via X-Node-ID header."
+  "Node-to-node auth gate for internal routes: the single predicate
+   (handlers.cluster) decides, this wrapper adds the standard envelope."
   [handler request]
-  (let [node-id (get-in request [:headers "x-node-id"])
-        cluster-enabled? (member/cluster-enabled?)
-        cluster-member (when cluster-enabled? (member/get-cluster))
-        known-node? (and cluster-member node-id
-                         (contains? (member/members cluster-member) node-id))]
-    (cond
-      (not cluster-enabled?)
-      (error-response "Cluster mode not enabled" 503)
+  (cond
+    (not (member/cluster-enabled?))
+    (middleware/error-response "Cluster mode not enabled" 503)
 
-      (not (and node-id (seq node-id)))
-      (error-response "Missing node authentication header" 401)
+    :else
+    (if-let [node-id (cluster/verify-node-auth request)]
+      (handler (assoc request :node-id node-id))
+      (middleware/error-response
+       (if (seq (get-in request [:headers "x-node-id"]))
+         "Unauthorized node"
+         "Missing node authentication header")
+       401))))
 
-      (not known-node?)
-      (error-response "Unauthorized node" 401)
+(defn internal-routes
+  [conn]
+  (routes
+   ;; PROPOSE - Leader sends transaction proposal to all members
+   (POST "/api/internal/propose" request
+         (verify-node-auth (fn [req] (cluster/handle-internal-propose req conn)) request))
 
-      :else
-      (handler (assoc request :node-id node-id)))))
+   ;; VOTE - Members send votes back to leader
+   (POST "/api/internal/vote" request
+         (verify-node-auth (fn [req] (cluster/handle-internal-vote req conn)) request))
 
-(defroutes internal-routes
-  ;; PROPOSE - Leader sends transaction proposal to all members
-  (POST "/api/internal/propose" request
-        (verify-node-auth handlers/handle-internal-propose request))
+   ;; COMMIT - Leader broadcasts commit after quorum reached
+   (POST "/api/internal/commit" request
+         (verify-node-auth (fn [req] (cluster/handle-internal-commit req conn)) request))
 
-  ;; VOTE - Members send votes back to leader
-  (POST "/api/internal/vote" request
-        (verify-node-auth handlers/handle-internal-vote request))
+   ;; ROLLBACK - Leader broadcasts rollback on rejection
+   (POST "/api/internal/rollback" request
+         (verify-node-auth (fn [req] (cluster/handle-internal-rollback req conn)) request))
 
-  ;; COMMIT - Leader broadcasts commit after quorum reached
-  (POST "/api/internal/commit" request
-        (verify-node-auth handlers/handle-internal-commit request))
-
-  ;; ROLLBACK - Leader broadcasts rollback on rejection
-  (POST "/api/internal/rollback" request
-        (verify-node-auth handlers/handle-internal-rollback request))
-
-  ;; Cluster status - for monitoring
-  (GET "/api/internal/cluster/status" request
-       (verify-node-auth handlers/handle-internal-cluster-status request)))
+   ;; Cluster status - for monitoring
+   (GET "/api/internal/cluster/status" request
+        (verify-node-auth (fn [req] (cluster/handle-internal-cluster-status req conn)) request))))
 
 ;; ============================================================================
 ;; Combined Routes
 ;; ============================================================================
 
-(defroutes api-routes
-  ;; Public routes (no auth)
-  public-routes
+(defn api-routes
+  ([conn] (api-routes conn nil))
+  ([conn policy-store]
+   (routes
+    ;; Public routes (no auth)
+    (public-routes conn)
 
-  ;; Development-only routes (wrapped with dev-only middleware)
-  (-> development-routes
-      middleware/wrap-development-only)
+    ;; Development-only routes (wrapped with dev-only middleware)
+    (-> (development-routes conn)
+        middleware/wrap-development-only)
 
-  ;; Optional auth routes (auth adds user context)
-  optional-auth-routes
+    ;; Optional auth routes (auth adds user context)
+    (optional-auth-routes conn)
 
-  ;; Authenticated routes (require valid JWT)
-  authenticated-routes
+    ;; Authenticated routes (require valid JWT)
+    (authenticated-routes conn policy-store)
 
-  ;; Internal cluster routes (node-to-node auth)
-  internal-routes
+    ;; Internal cluster routes (node-to-node auth)
+    (internal-routes conn)
 
-  ;; 404 handler - must be last
-  (route/not-found
-   (fn [request]
-     (error-response "Endpoint not found" 404))))
+    ;; 404 handler - must be last
+    (route/not-found
+     (fn [request]
+       (middleware/error-response "Endpoint not found" 404))))))
 
 ;; ============================================================================
 ;; Middleware Application
@@ -306,35 +324,15 @@
       middleware/wrap-params))
 
 ;; ============================================================================
-;; Main App
-;; ============================================================================
-
-(def app
-  "Main API application with middleware"
-  (wrap-api-middleware api-routes))
-
-(def app-routes
-  "Route handler (used by create-handler)"
-  api-routes)
-
-;; ============================================================================
-;; Handler Creation
+;; Handler Creation and Server Startup
 ;; ============================================================================
 
 (defn create-handler
-  "Create API handler with dependencies"
+  "API handler with dependencies injected through closures"
   ([conn policy-store]
    (create-handler conn policy-store nil))
-  ([conn policy-store config]
-   (fn [request]
-     (binding [handlers/*connection* conn
-               handlers/*policy-store* policy-store
-               handlers/*config* config]
-       (app request)))))
-
-;; ============================================================================
-;; Server Startup
-;; ============================================================================
+  ([conn policy-store _config]
+   (wrap-api-middleware (api-routes conn policy-store))))
 
 (defn start-server
   "Start HTTP server with API

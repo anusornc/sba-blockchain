@@ -4,6 +4,7 @@
 
 - JDK 17+
 - Clojure CLI
+- Node.js 20+ and npm, only for the optional traceability frontend
 - `bash`, `curl`, and `tar`
 
 ## Steps
@@ -17,6 +18,15 @@ source .env
 set +a
 source scripts/dev-env.bash
 clojure -M:test
+```
+
+Optional frontend check:
+
+```bash
+cd frontend/ontology-traceability
+npm install
+npm test
+npm run build
 ```
 
 If JDK 17+ and Clojure CLI are not installed globally, install them into the

@@ -4,25 +4,17 @@
   The rubric stamps pull / do-not-pull from named evidence defects —
   deliberately independent of the completeness score, whose agreement
   with these labels is ticket 03's evaluation."
-  (:require [clojure.test :refer [deftest is testing]]
+  (:require [clojure.test :refer [deftest is testing use-fixtures]]
             [datomic.api :as d]
-            [datomic-blockchain.datomic.schema :as schema]
+            [datomic-blockchain.test-support :as ts]
             [datomic-blockchain.traceability.recall-rubric :as recall-rubric]
-            [datomic-blockchain.traceability.sample-data :as sample])
-  (:import [java.util UUID]))
-
-(defn- fresh-conn
-  []
-  (let [uri (str "datomic:mem://recall-rubric-test-" (UUID/randomUUID))]
-    (d/delete-database uri)
-    (d/create-database uri)
-    (let [conn (d/connect uri)]
-      @(d/transact conn schema/full-schema)
-      conn)))
+            [datomic-blockchain.traceability.sample-data :as sample]))
 
 ;; =============================================================================
 ;; The written rubric, as data
 ;; =============================================================================
+
+(use-fixtures :each (fn [f] (f) (ts/retire-all!)))
 
 (deftest rubric-stamps-every-defect-type-test
   (testing "the rubric maps each defect type to a pull decision and the
@@ -56,7 +48,7 @@
 (deftest labeled-paths-load-as-fixtures-test
   (testing "one do-not-pull negative control plus one pull path per defect
             type, each addressable in the database by its own QR"
-    (let [conn (fresh-conn)
+    (let [conn (ts/fresh-conn)
           paths (recall-rubric/labeled-paths! conn)
           db (d/db conn)
           by-label (into {} (map (juxt :label identity) paths))]

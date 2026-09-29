@@ -15,37 +15,19 @@
    - Average path length calculation"
   (:require [clojure.test :refer :all]
             [datomic-blockchain.query.graph :as graph]
-            [datomic-blockchain.datomic.connection :as conn]
-            [datomic-blockchain.datomic.schema :as schema])
+            [datomic-blockchain.test-support :as ts])
   (:import [java.util UUID]))
 
 ;; ============================================================================
 ;; Test Fixtures
-;; ============================================================================
+;; =============================================================================
 
-(defn- temp-conn-fixture
-  "Create a temporary in-memory Datomic connection for testing"
-  [f]
-  (let [uri "datomic:mem://test-graph"]
-    (datomic.api/delete-database uri)
-    (datomic.api/create-database uri)
-    (let [connection (datomic.api/connect uri)]
-      ;; Install schema
-      @(datomic.api/transact connection schema/full-schema)
-      (f)
-      (datomic.api/release connection))))
-
-(use-fixtures :each temp-conn-fixture)
+(use-fixtures :each (fn [f] (f) (ts/retire-all!)))
 
 (defn- get-test-conn
   "Get a test connection with sample data"
   []
-  (let [uri "datomic:mem://test-graph-data"]
-    (datomic.api/delete-database uri)
-    (datomic.api/create-database uri)
-    (let [connection (datomic.api/connect uri)]
-      @(datomic.api/transact connection schema/full-schema)
-      connection)))
+  (ts/fresh-conn))
 
 (defn- create-sample-prov-o-data
   "Create sample PROV-O entities, activities, and agents for testing

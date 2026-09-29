@@ -12,31 +12,25 @@
             [datomic-blockchain.ontology.validator :as v]
             [datomic-blockchain.ontology.mapper :as m]
             [datomic.api :as d]
-            [datomic-blockchain.datomic.schema :as schema])
-  (:import [java.util UUID]))
+            [datomic-blockchain.test-support :as ts]))
 
 ;; =============================================================================
 ;; Test Fixtures
 ;; =============================================================================
 
 (defn- temp-conn
-  "Create a temporary in-memory Datomic connection for testing"
+  "A fresh in-memory connection with the full schema installed."
   []
-  (let [uri "datomic:mem://test-ontology"]
-    (d/delete-database uri)
-    (d/create-database uri)
-    (let [conn (d/connect uri)]
-      ;; Install minimal schema for PROV-O testing
-      @(d/transact conn schema/full-schema)
-      conn)))
+  (ts/fresh-conn))
+
+(def ^:private test-conn (atom nil))
 
 (defn- with-fresh-db
-  "Fixture: Provide a fresh database for each test"
+  "Fixture: fresh database per test, then a lease sweep"
   [f]
-  (let [conn (temp-conn)]
-    (kb/init-kb conn)
-    (f)
-    (d/release conn)))
+  (reset! test-conn (ts/fresh-conn))
+  (f)
+  (ts/retire-all!))
 
 (use-fixtures :each with-fresh-db)
 
@@ -46,28 +40,12 @@
 
 ;; KB State Management
 
-(deftest init-kb-test
-  (testing "Knowledge base can be initialized"
-    (let [conn (temp-conn)]
-      (kb/init-kb conn)
-      (is (some? @kb/kb-state))
-      (is (= conn (:conn @kb/kb-state))))))
-
-(deftest get-conn-test
-  (testing "Can retrieve connection from KB state"
-    (is (some? (kb/get-conn)))))
-
-(deftest get-db-test
-  (testing "Can get database value"
-    (let [db (kb/get-db)]
-      (is (some? db)))))
-
 ;; Entity Management
 
 (deftest create-entity-test
   (testing "Entity can be created with type and data"
     (let [product-id (random-uuid)
-          result (kb/create-entity! :product/batch
+          result (kb/create-entity! @test-conn :product/batch
                                    {:traceability/product product-id
                                     :traceability/product-name "tomatoes"
                                     :traceability/batch "BATCH-001"})]
@@ -77,7 +55,7 @@
 (deftest create-entity-with-custom-id-test
   (testing "Entity can be created with custom ID"
     (let [custom-id (random-uuid)
-          conn (kb/get-conn)
+          conn @test-conn
           result @(d/transact conn [{:db/id "temp"
                                      :prov/entity custom-id
                                      :prov/entity-type :product/batch}])]
@@ -85,10 +63,10 @@
 
 (deftest get-entity-test
   (testing "Can retrieve entity by ID"
-    (let [created (kb/create-entity! :product/batch
+    (let [created (kb/create-entity! @test-conn :product/batch
                                      {:traceability/product-name "corn"})
           prov-entity-id (:entity-id created)
-          db (d/db (kb/get-conn))
+          db (d/db @test-conn)
           ;; First try to get entity directly by UUID (for :db.unique/identity)
           entity (d/entity db prov-entity-id)]
       (if entity
@@ -104,31 +82,31 @@
 
 (deftest get-entity-not-found-test
   (testing "Returns nil for non-existent entity"
-    (let [entity (kb/get-entity (random-uuid))]
+    (let [entity (kb/get-entity (d/db @test-conn) (random-uuid))]
       (is (nil? entity)))))
 
 (deftest update-entity-test
   (testing "Can update entity attributes"
-    (let [created (kb/create-entity! :product/batch {})
+    (let [created (kb/create-entity! @test-conn :product/batch {})
           prov-entity-id (:entity-id created)
           ;; Get the actual database entity which has :db/id
-          db-entity (kb/get-entity prov-entity-id)
+          db-entity (kb/get-entity (d/db @test-conn) prov-entity-id)
           db-id (:db/id db-entity)]
       (if db-id
-        (let [result (kb/update-entity! db-id {:traceability/product-name "updated"})]
+        (let [result (kb/update-entity! @test-conn db-id {:traceability/product-name "updated"})]
           (is (:success result))
-          (let [entity (kb/get-entity prov-entity-id)]
+          (let [entity (kb/get-entity (d/db @test-conn) prov-entity-id)]
             (is (= "updated" (:traceability/product-name entity)))))
         ;; Fallback: mark test as passed if UUID lookup doesn't work
         (is (some? "UUID entity lookup needs query-based approach"))))))
 
 (deftest delete-entity-test
   (testing "Entity can be deleted"
-    (let [created (kb/create-entity! :product/batch {})
+    (let [created (kb/create-entity! @test-conn :product/batch {})
           entity-id (:entity-id created)
-          result (kb/delete-entity! entity-id)]
+          result (kb/delete-entity! @test-conn entity-id)]
       (is (:success result))
-      (is (nil? (kb/get-entity entity-id))))))
+      (is (nil? (kb/get-entity (d/db @test-conn) entity-id))))))
 
 ;; Activity Management
 
@@ -136,7 +114,7 @@
   (testing "Activity can be created with times"
     (let [start #inst "2024-01-01T00:00:00Z"
           end #inst "2024-01-01T01:00:00Z"
-          result (kb/create-activity! :supply-chain/transport
+          result (kb/create-activity! @test-conn :supply-chain/transport
                                       start
                                       end
                                       [])]
@@ -145,14 +123,14 @@
 
 (deftest associate-agent-test
   (testing "Agent can be associated with activity"
-    (let [agent-result (kb/create-agent! :organization/processor "Test Processor")
+    (let [agent-result (kb/create-agent! @test-conn :organization/processor "Test Processor")
           prov-agent-id (:agent-id agent-result)
-          activity-result (kb/create-activity! :supply-chain/transport
+          activity-result (kb/create-activity! @test-conn :supply-chain/transport
                                                 #inst "2024-01-01"
                                                 #inst "2024-01-02"
                                                 [])
           prov-activity-id (:activity-id activity-result)
-          conn (kb/get-conn)
+          conn @test-conn
           db (d/db conn)
           ;; Get actual database entities
           agent-entity (d/entity db prov-agent-id)
@@ -171,14 +149,14 @@
 
 (deftest generate-entity-test
   (testing "Activity can generate entity"
-    (let [activity-result (kb/create-activity! :supply-chain/production
+    (let [activity-result (kb/create-activity! @test-conn :supply-chain/production
                                                 #inst "2024-01-01"
                                                 #inst "2024-01-02"
                                                 [])
           prov-activity-id (:activity-id activity-result)
-          entity-result (kb/create-entity! :product/batch {})
+          entity-result (kb/create-entity! @test-conn :product/batch {})
           prov-entity-id (:entity-id entity-result)
-          conn (kb/get-conn)
+          conn @test-conn
           db (d/db conn)
           ;; Get actual database entities
           activity-entity (d/entity db prov-activity-id)
@@ -199,7 +177,7 @@
 
 (deftest create-agent-test
   (testing "Agent can be created with type and name"
-    (let [result (kb/create-agent! :organization/supplier "Green Valley Farm")]
+    (let [result (kb/create-agent! @test-conn :organization/supplier "Green Valley Farm")]
       (is (:success result))
       (is (uuid? (:agent-id result))))))
 
@@ -207,13 +185,13 @@
 
 (deftest get-kb-stats-test
   (testing "Can get knowledge base statistics"
-    (kb/create-entity! :product/batch {})
-    (kb/create-agent! :organization/producer "Test Producer")
-    (kb/create-activity! :supply-chain/transport
+    (kb/create-entity! @test-conn :product/batch {})
+    (kb/create-agent! @test-conn :organization/producer "Test Producer")
+    (kb/create-activity! @test-conn :supply-chain/transport
                           #inst "2024-01-01"
                           #inst "2024-01-02"
                           [])
-    (let [stats (kb/get-kb-stats)]
+    (let [stats (kb/get-kb-stats (d/db @test-conn))]
       (is (pos? (:entities stats)))
       (is (pos? (:activities stats)))
       (is (pos? (:agents stats))))))
@@ -224,11 +202,11 @@
 
 (deftest get-entity-type-stats-test
   (testing "Can get statistics grouped by entity type"
-    (kb/create-entity! :product/batch {})
-    (kb/create-entity! :product/batch {})
-    (kb/create-entity! :product/item {})
+    (kb/create-entity! @test-conn :product/batch {})
+    (kb/create-entity! @test-conn :product/batch {})
+    (kb/create-entity! @test-conn :product/item {})
     ;; Use manual query instead of the helper function
-    (let [db (d/db (kb/get-conn))
+    (let [db (d/db @test-conn)
           stats (d/q '[:find ?type (count ?e)
                        :where
                        [?e :prov/entity-type ?type]]
@@ -239,12 +217,12 @@
 
 (deftest get-activity-type-stats-test
   (testing "Can get statistics grouped by activity type"
-    (kb/create-activity! :supply-chain/transport
+    (kb/create-activity! @test-conn :supply-chain/transport
                           #inst "2024-01-01"
                           #inst "2024-01-02"
                           [])
     ;; Use manual query instead of the helper function
-    (let [db (d/db (kb/get-conn))
+    (let [db (d/db @test-conn)
           stats (d/q '[:find ?type (count ?e)
                        :where
                        [?e :prov/activity-type ?type]]
@@ -254,10 +232,10 @@
 
 (deftest get-agent-type-stats-test
   (testing "Can get statistics grouped by agent type"
-    (kb/create-agent! :organization/producer "Producer 1")
-    (kb/create-agent! :organization/processor "Processor 1")
+    (kb/create-agent! @test-conn :organization/producer "Producer 1")
+    (kb/create-agent! @test-conn :organization/processor "Processor 1")
     ;; Use manual query instead of the helper function
-    (let [db (d/db (kb/get-conn))
+    (let [db (d/db @test-conn)
           stats (d/q '[:find ?type (count ?e)
                        :where
                        [?e :prov/agent-type ?type]]
@@ -270,16 +248,16 @@
 
 (deftest search-entities-test
   (testing "Can search entities by attribute"
-    (kb/create-entity! :product/batch {:traceability/product-name "tomatoes"})
-    (let [results (kb/search-entities :traceability/product-name "tomatoes")]
+    (kb/create-entity! @test-conn :product/batch {:traceability/product-name "tomatoes"})
+    (let [results (kb/search-entities (d/db @test-conn) :traceability/product-name "tomatoes")]
       (is (coll? results))
       (is (pos? (count results))))))
 
 (deftest search-by-product-test
   (testing "Can find entities related to a product"
     ;; This test would need search-by-product to work with product-name
-    (kb/create-entity! :product/batch {:traceability/product-name "corn"})
-    (let [db (d/db (kb/get-conn))
+    (kb/create-entity! @test-conn :product/batch {:traceability/product-name "corn"})
+    (let [db (d/db @test-conn)
           results (d/q '[:find [?e]
                         :where
                         [?e :traceability/product-name "corn"]]
@@ -289,8 +267,8 @@
 
 (deftest search-by-batch-test
   (testing "Can find entities in a batch"
-    (kb/create-entity! :product/batch {:traceability/batch "BATCH-001"})
-    (let [db (d/db (kb/get-conn))
+    (kb/create-entity! @test-conn :product/batch {:traceability/batch "BATCH-001"})
+    (let [db (d/db @test-conn)
           results (d/q '[:find [?e]
                         :where
                         [?e :traceability/batch "BATCH-001"]]
@@ -300,11 +278,11 @@
 
 (deftest search-by-date-range-test
   (testing "Can find activities within date range"
-    (kb/create-activity! :supply-chain/transport
+    (kb/create-activity! @test-conn :supply-chain/transport
                           #inst "2024-01-01T12:00:00Z"
                           #inst "2024-01-01T14:00:00Z"
                           [])
-    (let [db (d/db (kb/get-conn))
+    (let [db (d/db @test-conn)
           results (d/q '[:find ?activity ?time
                         :where
                         [?activity :prov/startedAtTime ?time]
@@ -326,15 +304,15 @@
                           :traceability/product-name "wheat"}
                   :activities []
                   :agents []}]]
-      (let [result (kb/import-prov-o-data! data)]
+      (let [result (kb/import-prov-o-data! @test-conn data)]
         (is (:success result))
         (is (= 1 (:imported result)))))))
 
 (deftest export-prov-o-data-test
   (testing "Can export PROV-O data"
-    (let [created (kb/create-entity! :product/batch {:traceability/product-name "rice"})
+    (let [created (kb/create-entity! @test-conn :product/batch {:traceability/product-name "rice"})
           entity-id (:entity-id created)
-          results (kb/export-prov-o-data [entity-id])]
+          results (kb/export-prov-o-data (d/db @test-conn) [entity-id])]
       ;; Results is a collection with one element (even if entity/provenance are nil)
       (is (coll? results))
       (is (= 1 (count results))))))
@@ -435,7 +413,7 @@
 
 (deftest validate-entity-activity-link-valid-test
   (testing "Valid entity-activity link passes"
-    (let [conn (kb/get-conn)
+    (let [conn @test-conn
           entity-result @(d/transact conn [{:db/id "temp-e"
                                               :prov/entity (random-uuid)
                                               :prov/entity-type :product/batch}])
@@ -451,7 +429,7 @@
 
 (deftest validate-entity-activity-link-entity-not-found-test
   (testing "Link with non-existent entity fails"
-    (let [conn (kb/get-conn)
+    (let [conn @test-conn
           activity-result @(d/transact conn [{:db/id "temp-a"
                                                 :prov/activity (random-uuid)
                                                 :prov/activity-type :supply-chain/transport
@@ -464,7 +442,7 @@
 
 (deftest validate-entity-activity-link-activity-not-found-test
   (testing "Link with non-existent activity fails"
-    (let [conn (kb/get-conn)
+    (let [conn @test-conn
           entity-result @(d/transact conn [{:db/id "temp-e"
                                               :prov/entity (random-uuid)
                                               :prov/entity-type :product/batch}])
@@ -476,7 +454,7 @@
 
 (deftest validate-activity-agent-link-valid-test
   (testing "Valid activity-agent link passes"
-    (let [conn (kb/get-conn)
+    (let [conn @test-conn
           activity-result @(d/transact conn [{:db/id "temp-a"
                                                 :prov/activity (random-uuid)
                                                 :prov/activity-type :supply-chain/transport
@@ -492,7 +470,7 @@
 
 (deftest validate-activity-agent-link-not-found-test
   (testing "Link with non-existent agent fails"
-    (let [conn (kb/get-conn)
+    (let [conn @test-conn
           activity-result @(d/transact conn [{:db/id "temp-a"
                                                 :prov/activity (random-uuid)
                                                 :prov/activity-type :supply-chain/transport
@@ -505,7 +483,7 @@
 
 (deftest validate-derivation-valid-test
   (testing "Valid derivation passes"
-    (let [conn (kb/get-conn)
+    (let [conn @test-conn
           e1-result @(d/transact conn [{:db/id "temp-e1"
                                           :prov/entity (random-uuid)
                                           :prov/entity-type :product/batch}])
@@ -520,7 +498,7 @@
 
 (deftest validate-derivation-self-test
   (testing "Self-derivation fails"
-    (let [conn (kb/get-conn)
+    (let [conn @test-conn
           e-result @(d/transact conn [{:db/id "temp-e"
                                          :prov/entity (random-uuid)
                                          :prov/entity-type :product/batch}])
@@ -532,7 +510,7 @@
 
 (deftest validate-derivation-missing-entity-test
   (testing "Derivation with missing entity fails"
-    (let [conn (kb/get-conn)
+    (let [conn @test-conn
           e-result @(d/transact conn [{:db/id "temp-e"
                                          :prov/entity (random-uuid)
                                          :prov/entity-type :product/batch}])
@@ -605,7 +583,7 @@
 
 (deftest validate-entity-valid-test
   (testing "Complete validation of valid entity passes"
-    (let [conn (kb/get-conn)
+    (let [conn @test-conn
           product-ref (random-uuid)
           result @(d/transact conn [{:db/id "temp"
                                       :prov/entity (random-uuid)
@@ -619,14 +597,14 @@
 
 (deftest validate-entity-not-found-test
   (testing "Validation of non-existent entity fails"
-    (let [db (d/db (kb/get-conn))]
+    (let [db (d/db @test-conn)]
       (let [result (v/validate-entity db (random-uuid))]
         (is (false? (:valid? result)))
         (is (some #(.contains % "not found") (:errors result)))))))
 
 (deftest validate-entities-test
   (testing "Can validate multiple entities"
-    (let [conn (kb/get-conn)
+    (let [conn @test-conn
           product-ref (random-uuid)
           r1 @(d/transact conn [{:db/id "temp1"
                                    :prov/entity (random-uuid)
@@ -647,10 +625,10 @@
 (deftest validate-database-test
   (testing "Can validate entire database"
     (let [product-ref (random-uuid)]
-      (kb/create-entity! :product/batch {:traceability/product product-ref
+      (kb/create-entity! @test-conn :product/batch {:traceability/product product-ref
                                           :traceability/product-name "soy"})
-      (kb/create-agent! :organization/producer "Test Producer")
-      (let [db (d/db (kb/get-conn))
+      (kb/create-agent! @test-conn :organization/producer "Test Producer")
+      (let [db (d/db @test-conn)
             result (v/validate-database db)]
         (is (contains? result :summary))
         (is (contains? result :results))))))
@@ -783,7 +761,7 @@
 
 (deftest datomic-entity->rdf-test
   (testing "Datomic entity converts to RDF triples"
-    (let [conn (kb/get-conn)
+    (let [conn @test-conn
           prov-entity-id (random-uuid)
           result @(d/transact conn [{:db/id "temp"
                                       :prov/entity prov-entity-id
@@ -800,7 +778,7 @@
 
 (deftest datomic->rdf-test
   (testing "Can export entity as RDF string"
-    (let [conn (kb/get-conn)
+    (let [conn @test-conn
           prov-entity-id (random-uuid)
           result @(d/transact conn [{:db/id "temp"
                                       :prov/entity prov-entity-id
@@ -818,9 +796,9 @@
 
 (deftest export-entities-as-turtle-test
   (testing "Can export all entities of a type as Turtle"
-    (kb/create-entity! :product/batch {:traceability/product-name "barley"})
-    (kb/create-entity! :product/batch {:traceability/product-name "oats"})
-    (let [db (d/db (kb/get-conn))
+    (kb/create-entity! @test-conn :product/batch {:traceability/product-name "barley"})
+    (kb/create-entity! @test-conn :product/batch {:traceability/product-name "oats"})
+    (let [db (d/db @test-conn)
           turtle (m/export-entities-as-turtle db :product/batch)]
       (is (string? turtle)))))
 

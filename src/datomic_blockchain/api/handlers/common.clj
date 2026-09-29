@@ -29,8 +29,9 @@
 (defn valid-uuid?
   "Check if string is a valid UUID format"
   [s]
-  (and (string? s)
-       (re-matches uuid-regex s)))
+  (boolean
+   (and (string? s)
+        (re-matches uuid-regex s))))
 
 (defn parse-uuid-safe
   "Safely parse a UUID string, returning nil if invalid"

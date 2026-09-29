@@ -1,32 +1,12 @@
 (ns datomic-blockchain.ontology.kb
   "Knowledge base operations for ontology-enhanced blockchain
-  High-level operations combining ontology, queries, and graph traversal"
+  High-level operations combining ontology, queries, and graph traversal.
+  Every operation receives its connection or db value explicitly — no
+  global KB state (ADR-0001)."
   (:require [taoensso.timbre :as log]
             [datomic.api :as d]
             [datomic-blockchain.query.provenance :as prov-query]
             [datomic-blockchain.query.graph :as graph]))
-
-;; ============================================================================
-;; Knowledge Base State
-;; ============================================================================
-
-(defonce kb-state (atom nil))
-
-(defn init-kb
-  "Initialize knowledge base with connection"
-  [conn]
-  (reset! kb-state {:conn conn})
-  (log/info "Knowledge base initialized"))
-
-(defn get-conn
-  "Get database connection from KB state"
-  []
-  (:conn @kb-state))
-
-(defn get-db
-  "Get current database value"
-  []
-  (d/db (get-conn)))
 
 ;; ============================================================================
 ;; Entity Management
@@ -34,8 +14,6 @@
 
 (defn create-entity!
   "Create a new PROV-O entity in the knowledge base"
-  ([entity-type data]
-   (create-entity! (get-conn) entity-type data))
   ([conn entity-type data]
    (log/info "Creating entity:" entity-type)
    (let [entity-id (random-uuid)
@@ -50,15 +28,11 @@
 
 (defn get-entity
   "Get entity by ID with all attributes"
-  ([entity-id]
-   (get-entity (get-db) entity-id))
   ([db entity-id]
    (graph/get-entity db entity-id)))
 
 (defn update-entity!
   "Update entity attributes"
-  ([entity-id updates]
-   (update-entity! (get-conn) entity-id updates))
   ([conn entity-id updates]
    (log/info "Updating entity:" entity-id)
    (let [entity-data (assoc updates :db/id entity-id)
@@ -71,8 +45,6 @@
   "Retract entity from knowledge base
    PERFORMANCE: Uses :db/retractEntity for single operation (10-100x faster)
    Previous implementation did N separate :db/retract operations"
-  ([entity-id]
-   (delete-entity! (get-conn) entity-id))
   ([conn entity-id]
    (do
      (log/warn "Deleting entity:" entity-id)
@@ -92,8 +64,6 @@
 
 (defn create-activity!
   "Create a new PROV-O activity"
-  ([activity-type start-time end-time used-entities]
-   (create-activity! (get-conn) activity-type start-time end-time used-entities))
   ([conn activity-type start-time end-time used-entities]
    (log/info "Creating activity:" activity-type)
    (let [activity-id (random-uuid)
@@ -109,8 +79,6 @@
 
 (defn associate-agent!
   "Associate an agent with an activity"
-  ([activity-id agent-id]
-   (associate-agent! (get-conn) activity-id agent-id))
   ([conn activity-id agent-id]
    (log/info "Associating agent" agent-id "with activity" activity-id)
    @(d/transact conn [[:db/add activity-id :prov/wasAssociatedWith agent-id]])
@@ -120,8 +88,6 @@
 
 (defn generate-entity!
   "Record that an activity generated an entity"
-  ([activity-id entity-id]
-   (generate-entity! (get-conn) activity-id entity-id))
   ([conn activity-id entity-id]
    (log/info "Activity" activity-id "generated entity" entity-id)
    @(d/transact conn [[:db/add entity-id :prov/wasGeneratedBy activity-id]])
@@ -135,8 +101,6 @@
 
 (defn create-agent!
   "Create a new PROV-O agent"
-  ([agent-type agent-name]
-   (create-agent! (get-conn) agent-type agent-name))
   ([conn agent-type agent-name]
    (log/info "Creating agent:" agent-name)
    (let [agent-id (random-uuid)
@@ -155,8 +119,6 @@
 (defn get-provenance
   "Get complete provenance of an entity
   Returns entity, activities, and agents involved"
-  ([entity-id]
-   (get-provenance (get-db) entity-id))
   ([db entity-id]
    (let [provenance (prov-query/query-provenance db entity-id)]
      (mapv (fn [[entity activity agent]]
@@ -171,8 +133,6 @@
 (defn get-supply-chain-history
   "Get complete supply chain history for a product
   Returns chronological list of events"
-  ([product-id]
-   (get-supply-chain-history (get-db) product-id))
   ([db product-id]
    (let [history (prov-query/query-product-history db product-id)]
      (sort-by :time (mapv (fn [[entity activity-type location time]]
@@ -185,8 +145,6 @@
 (defn trace-product-path
   "Trace complete path of a product through supply chain
   Returns ordered list from origin to destination"
-  ([product-id]
-   (trace-product-path (get-db) product-id))
   ([db product-id]
    (log/info "Tracing product path:" product-id)
    (let [path (prov-query/query-supply-chain-path db product-id)]
@@ -207,8 +165,6 @@
   "Build knowledge graph for visualization
   Includes entities, activities, agents, and relationships
   Returns {:nodes [{:id :label :type}] :edges [{:from :to :relation}]}"
-  ([entity-ids depth]
-   (build-kg (get-db) entity-ids depth))
   ([db entity-ids depth]
    (log/info "Building knowledge graph for" (count entity-ids) "entities depth" depth)
    (reduce (fn [acc entity-id]
@@ -273,7 +229,6 @@
 (defn build-full-kg
   "Build complete knowledge graph with all entities in database
   USE WITH CAUTION on large databases"
-  ([] (build-full-kg (get-db)))
   ([db]
    (log/info "Building full knowledge graph")
    (let [all-entities (concat
@@ -284,8 +239,6 @@
 
 (defn get-entity-network
   "Get network of connected entities around a central entity"
-  ([entity-id depth]
-   (get-entity-network (get-db) entity-id depth))
   ([db entity-id depth]
    (log/info "Getting entity network for" entity-id "depth" depth)
    (let [descendants (graph/get-descendants db entity-id depth)
@@ -301,8 +254,6 @@
 
 (defn get-kb-stats
   "Get knowledge base statistics"
-  ([]
-   (get-kb-stats (get-db)))
   ([db]
    {:entities (d/q '[:find (count ?e) .
                      :where [?e :prov/entity]] db)
@@ -319,8 +270,6 @@
 
 (defn get-entity-type-stats
   "Get statistics grouped by entity type"
-  ([]
-   (get-entity-type-stats (get-db)))
   ([db]
    (d/q '[:find [?type ?count]
           :where
@@ -330,8 +279,6 @@
 
 (defn get-activity-type-stats
   "Get statistics grouped by activity type"
-  ([]
-   (get-activity-type-stats (get-db)))
   ([db]
    (d/q '[:find [?type ?count]
           :where
@@ -341,8 +288,6 @@
 
 (defn get-agent-type-stats
   "Get statistics grouped by agent type"
-  ([]
-   (get-agent-type-stats (get-db)))
   ([db]
    (d/q '[:find [?type ?count]
           :where
@@ -356,8 +301,6 @@
 
 (defn search-entities
   "Search for entities by attribute values"
-  ([attr value]
-   (search-entities (get-db) attr value))
   ([db attr value]
    (log/debug "Searching entities:" attr "=" value)
    (d/q '[:find [?e]
@@ -370,8 +313,6 @@
 
 (defn search-by-product
   "Find all entities related to a product"
-  ([product-name]
-   (search-by-product (get-db) product-name))
   ([db product-name]
    (d/q '[:find [?e]
           :in $ ?product
@@ -382,8 +323,6 @@
 
 (defn search-by-batch
   "Find all entities in a batch"
-  ([batch-number]
-   (search-by-batch (get-db) batch-number))
   ([db batch-number]
    (d/q '[:find [?e]
           :in $ ?batch
@@ -394,8 +333,6 @@
 
 (defn search-by-date-range
   "Find activities within date range"
-  ([start-date end-date]
-   (search-by-date-range (get-db) start-date end-date))
   ([db start-date end-date]
    (d/q '[:find [?activity ?time]
           :in $ ?start ?end
@@ -481,9 +418,8 @@
 (defn kg-filter-by-depth
   "Filter knowledge graph to only include nodes within N hops of root nodes
   Keeps only nodes reachable from initial entity-ids within max-depth"
-  [kg entity-ids max-depth]
-  (let [db (get-db)
-        reachable-ids (set (mapcat #(graph/get-descendants db % max-depth)
+  [kg db entity-ids max-depth]
+  (let [reachable-ids (set (mapcat #(graph/get-descendants db % max-depth)
                                    entity-ids))]
     (kg-filter-by-ids kg (conj reachable-ids entity-ids))))
 
@@ -509,9 +445,8 @@
 (defn kg-find-shortest-path
   "Find shortest path between two nodes in knowledge graph
   Returns sequence of node IDs or nil if no path exists"
-  [kg from-id to-id]
-  (let [db (get-db)
-        path (graph/find-path db from-id to-id)]
+  [kg db from-id to-id]
+  (let [path (graph/find-path db from-id to-id)]
     (when path
       {:path path
        :length (count path)
@@ -577,8 +512,6 @@
 (defn import-prov-o-data!
   "Import PROV-O data from external source
   Data should be vector of {entity, activities, agents} maps"
-  ([data]
-   (import-prov-o-data! (get-conn) data))
   ([conn data]
    (log/info "Importing" (count data) "PROV-O records")
    (let [tx-data (mapcat (fn [record]
@@ -597,8 +530,6 @@
 
 (defn export-prov-o-data
   "Export PROV-O data for external systems"
-  ([entity-ids]
-   (export-prov-o-data (get-db) entity-ids))
   ([db entity-ids]
    (log/info "Exporting" (count entity-ids) "entities")
    (mapv (fn [entity-id]
@@ -613,11 +544,11 @@
 
 (defn clear-kb
   "Clear all data from knowledge base (USE WITH CAUTION)"
-  []
+  [conn]
   (log/warn "Clearing knowledge base!")
   (when false ;; Disabled for safety
     ;; Retract all entities
-    (let [db (get-db)
+    (let [db (d/db conn)
           entities (d/q '[:find [?e] :where [?e :prov/entity]] db)
           activities (d/q '[:find [?e] :where [?e :prov/activity]] db)
           agents (d/q '[:find [?e] :where [?e :prov/agent]] db)
@@ -631,8 +562,8 @@
 ;; ============================================================================
 
 (comment
-  ;; Development REPL usage
-  (init-kb (dev/conn))
+  ;; Development REPL usage: every operation takes the connection
+  ;; (def conn (dev/conn))
 
   ;; Create entities
   (create-entity! :product/batch

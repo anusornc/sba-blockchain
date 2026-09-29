@@ -92,14 +92,20 @@
   "Check if query matches a template pattern."
   [query template]
   (try
-    (let [query-find-index (.indexOf query :find)
+    (let [find-arity (fn [q idx]
+                       (when (>= idx 0)
+                         ;; in vector form each :find bind is its own element,
+                         ;; so arity = elements between :find and :where
+                         (count (take-while #(not= % :where) (drop (inc idx) q)))))
+          find-coll-head? (fn [q idx]
+                            (when (>= idx 0)
+                              ;; a bare bind and an aggregation list are
+                              ;; different find shapes and must not cross-match
+                              (coll? (nth q (inc idx) nil))))
+          query-find-index (.indexOf query :find)
           template-find-index (.indexOf template :find)
-          query-find (when (>= query-find-index 0)
-                       (and (< (inc query-find-index) (count query))
-                            (nth query (inc query-find-index))))
-          template-find (when (>= template-find-index 0)
-                          (and (< (inc template-find-index) (count template))
-                               (nth template (inc template-find-index))))
+          query-arity (find-arity query query-find-index)
+          template-arity (find-arity template template-find-index)
           has-find (and (>= query-find-index 0) (>= template-find-index 0))
           query-attrs (->> (tree-seq coll? seq query)
                            (filter keyword?)
@@ -111,16 +117,14 @@
                               set)]
 
       (and has-find
-           query-find
-           template-find
+           query-arity
+           template-arity
+           ;; the :find clause must return the same arity as the template
+           ;; (e.g. a two-column find must not ride a one-column template)
+           (= query-arity template-arity)
+           (= (find-coll-head? query query-find-index)
+              (find-coll-head? template template-find-index))
            (= query-attrs template-attrs)
-           (or (and (vector? query-find) (vector? template-find))
-               (and (keyword? query-find) (keyword? template-find))
-               (and (list? query-find) (list? template-find))
-               (and (symbol? query-find) (symbol? template-find))
-               (and (symbol? template-find)
-                    (or (symbol? query-find)
-                        (keyword? query-find))))
            (contains? (set query) :where)
            (contains? (set template) :where)))
     (catch Exception e
@@ -134,13 +138,14 @@
   (try
     (let [normalized (normalize-query-for-comparison query)]
       (reduce
-       (fn [_ [template-id template-data]]
+       (fn [acc [template-id template-data]]
          (let [template (:template template-data)
                normalized-template (normalize-query-for-comparison template)]
-           (when (match-template? normalized normalized-template)
+           (if (match-template? normalized normalized-template)
              (reduced {:allowed true
                        :matched-template template-id
-                       :template template-data}))))
+                       :template template-data})
+             acc)))
        {:allowed false :matched-template nil}
        allowed-queries))
     (catch Exception e
@@ -269,6 +274,11 @@
       (nil? query-params)
       (common/validation-error "Missing query parameter" {:param :query})
 
+      ;; Invalid query structure (checked before the whitelist so
+      ;; malformed input is a 400, not a 403)
+      (not (valid-query-structure? query-params))
+      (common/validation-error "Invalid query format" {:required [:find :where]})
+
       ;; Query not in whitelist
       (not (:allowed whitelist-check))
       (do
@@ -279,10 +289,6 @@
           (str "Query not allowed. Only pre-approved query templates are permitted.")
           403
           {:matched-template (:matched-template whitelist-check)}))
-
-      ;; Invalid query structure
-      (not (valid-query-structure? query-params))
-      (common/validation-error "Invalid query format" {:required [:find :where]})
 
       ;; Execute validated query
       :else

@@ -5,7 +5,8 @@
    These are plain Datomic queries — the history/provenance view
    adapters over the same PROV relations the completeness assessment
    scores."
-  (:require [datomic.api :as d]))
+  (:require [datomic.api :as d]
+            [datomic-blockchain.query.graph :as graph]))
 
 ;; ============================================================================
 ;; Predefined Queries for Common Patterns
@@ -93,3 +94,65 @@
          [(get-else $ ?activity :traceability/location "unknown") ?location]]
        db
        product-id))
+
+;; ============================================================================
+;; Entity resolution
+;; ============================================================================
+
+(defn parse-uuid-safe
+  "A java.util.UUID for uuid-shaped input, nil otherwise."
+  [x]
+  (when (string? x)
+    (try
+      (java.util.UUID/fromString x)
+      (catch Exception _ nil))))
+
+(defn entity-eid-by-uuid
+  "The entity id for a PROV entity uuid, nil when absent."
+  [db entity-uuid]
+  (d/q '[:find ?e .
+         :in $ ?id
+         :where [?e :prov/entity ?id]]
+       db entity-uuid))
+
+(defn resolve-product-uuid
+  "Resolve a product identifier (uuid, uuid string, or batch id) to its
+   PROV entity uuid."
+  [db product-id]
+  (or (parse-uuid-safe product-id)
+      (when (uuid? product-id) product-id)
+      (d/q '[:find ?pid .
+             :in $ ?batch
+             :where
+             [?e :traceability/batch ?batch]
+             [?e :prov/entity ?pid]]
+           db
+           product-id)))
+
+(defn product-eid-by-qr-or-batch
+  "The entity id for a product by QR code or batch id, nil when absent."
+  [db qr-code batch-id]
+  (cond
+    qr-code
+    (d/q '[:find ?e .
+           :in $ ?qr
+           :where [?e :traceability/qr-code ?qr]]
+         db qr-code)
+
+    batch-id
+    (d/q '[:find ?e .
+           :in $ ?batch
+           :where [?e :traceability/batch ?batch]]
+         db batch-id)
+
+    :else nil))
+
+(defn timeline-eids
+  "Entity ids for a timeline: the entity itself plus every ancestor and
+   descendant."
+  [db entity-uuid]
+  (let [self (entity-eid-by-uuid db entity-uuid)
+        ancestors (or (graph/get-ancestors db entity-uuid) #{})
+        descendants (or (graph/get-descendants db entity-uuid) #{})]
+    (cond-> (concat ancestors descendants)
+      self (conj self))))

@@ -1,6 +1,11 @@
 {:paths ["src" "test" "target" "frontend/src" "resources" "scripts"]
  :deps {org.clojure/clojure {:mvn/version "1.11.1"}
-        com.datomic/peer {:mvn/version "1.0.7469"}
+        ;; Public Clojars Free peer: keeps the project buildable from a fresh
+        ;; clone and in CI (the licensed Pro peer jar under external/ was never
+        ;; in git). A machine that needs the Pro peer classes can add the
+        ;; local jar back via an :extra-paths alias; the transactor runtime
+        ;; under external/datomic-pro is a separate process and unaffected.
+        com.datomic/datomic-free {:mvn/version "0.9.5697"}
         ;; RDF/Ontology support
         ;; org.eclipse.rdf4j/rdf4j-runtime {:mvn/version "4.3.2"}
         ;; Web server
@@ -29,9 +34,7 @@
         ;; System components
         integrant/integrant {:mvn/version "0.8.0"}}
 
- :aliases {:nk-experiment {:main-opts ["-m" "datomic-blockchain.benchmark.nk-experiment"]}
-
-           :dev {:extra-paths ["dev"]
+ :aliases {:dev {:extra-paths ["dev"]
                  :extra-deps {org.clojure/tools.namespace {:mvn/version "1.4.4"}
                               criterium/criterium {:mvn/version "0.4.6"}}}
 

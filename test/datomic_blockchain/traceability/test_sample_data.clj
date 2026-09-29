@@ -5,9 +5,9 @@
   one interface; the completeness assessment interface reads them back.
   Together these are the primitives issue 02 (labeled paths) and issue 03
   (score agrees with labels) build on."
-  (:require [clojure.test :refer [deftest is testing]]
+  (:require [clojure.test :refer [deftest is testing use-fixtures]]
             [datomic.api :as d]
-            [datomic-blockchain.datomic.schema :as schema]
+            [datomic-blockchain.test-support :as ts]
             [datomic-blockchain.traceability.completeness :as completeness]
             [datomic-blockchain.traceability.sample-data :as sample])
   (:import [java.util UUID]))
@@ -15,15 +15,6 @@
 (defn- approx=
   [expected actual]
   (< (Math/abs (- expected actual)) 1e-9))
-
-(defn- fresh-conn
-  []
-  (let [uri (str "datomic:mem://sample-data-test-" (UUID/randomUUID))]
-    (d/delete-database uri)
-    (d/create-database uri)
-    (let [conn (d/connect uri)]
-      @(d/transact conn schema/full-schema)
-      conn)))
 
 (defn- assess
   [conn entity-id]
@@ -33,10 +24,12 @@
 ;; The base sample
 ;; =============================================================================
 
+(use-fixtures :each (fn [f] (f) (ts/retire-all!)))
+
 (deftest seed-uht-sample-returns-anchors-and-counts-test
   (testing "the dev-handler adapter's data: counts match the dataset,
             anchors point at the chocolate lot"
-    (let [conn (fresh-conn)
+    (let [conn (ts/fresh-conn)
           result (sample/seed-uht-sample! conn)
           anchors (:benchmark-anchors result)]
       (is (= {:agents 5 :products 4 :activities 7 :relationships 22}
@@ -47,7 +40,7 @@
 
 (deftest seeded-sample-is-queryable-by-qr-test
   (testing "the QR lookup finds the seeded chocolate entity"
-    (let [conn (fresh-conn)
+    (let [conn (ts/fresh-conn)
           anchors (-> (sample/seed-uht-sample! conn) :benchmark-anchors)
           db (d/db conn)
           found (d/q '[:find ?e .
@@ -63,7 +56,7 @@
 (deftest labeled-paths-carry-their-defect-test
   (testing "each seeded defect is named by the assessment's missing evidence
             and scores below the complete path"
-    (let [conn (fresh-conn)
+    (let [conn (ts/fresh-conn)
           base (sample/seed-uht-sample! conn)
           complete (assess conn (UUID/fromString (get-in base [:benchmark-anchors :entity-id])))]
       (is (approx= 1.0 (:completeness-score complete))
@@ -81,7 +74,7 @@
 (deftest labeled-paths-coexist-with-base-sample-test
   (testing "variants are defect-scoped, so base + all four defects coexist
             and stay individually addressable by QR"
-    (let [conn (fresh-conn)
+    (let [conn (ts/fresh-conn)
           base-anchors (-> (sample/seed-uht-sample! conn) :benchmark-anchors)
           variant-anchors (mapv #(:anchors (sample/seed-labeled-path! conn %))
                                 (sample/labeled-path-defects))

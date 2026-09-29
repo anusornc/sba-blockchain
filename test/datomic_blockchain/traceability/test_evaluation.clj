@@ -2,26 +2,18 @@
   "Tests for the labeled-path evaluation: the checkable harness that
   records completeness score, missing evidence, and recall decision per
   labeled path, and checks the score's agreement with the rubric."
-  (:require [clojure.test :refer [deftest is testing]]
+  (:require [clojure.test :refer [deftest is testing use-fixtures]]
             [datomic.api :as d]
-            [datomic-blockchain.datomic.schema :as schema]
+            [datomic-blockchain.test-support :as ts]
             [datomic-blockchain.traceability.evaluation :as evaluation]
-            [datomic-blockchain.traceability.recall-rubric :as recall-rubric])
-  (:import [java.util UUID]))
+            [datomic-blockchain.traceability.recall-rubric :as recall-rubric]))
 
-(defn- fresh-conn
-  []
-  (let [uri (str "datomic:mem://evaluation-test-" (UUID/randomUUID))]
-    (d/delete-database uri)
-    (d/create-database uri)
-    (let [conn (d/connect uri)]
-      @(d/transact conn schema/full-schema)
-      conn)))
+(use-fixtures :each (fn [f] (f) (ts/retire-all!)))
 
 (deftest evaluation-records-score-evidence-and-decision-per-path-test
   (testing "each labeled path yields a row with score, named evidence,
             and the rubric stamp"
-    (let [conn (fresh-conn)
+    (let [conn (ts/fresh-conn)
           result (evaluation/evaluate-labeled-paths! conn)
           rows (:rows result)
           by-label (into {} (map (juxt :label identity) rows))]
@@ -37,7 +29,7 @@
 (deftest evaluation-checks-score-agrees-with-labels-test
   (testing "the agreement checks: complete scores above every defective
             path, expected evidence is named, and do-not-pull outranks pull"
-    (let [conn (fresh-conn)
+    (let [conn (ts/fresh-conn)
           result (evaluation/evaluate-labeled-paths! conn)
           checks (:checks result)]
       (is (true? (:complete-scores-above-defective? checks)))
