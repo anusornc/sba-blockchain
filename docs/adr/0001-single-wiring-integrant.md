@@ -1,0 +1,3 @@
+# Single wiring through Integrant; core.clj is a delegate
+
+The app had three wiring mechanisms (hand-rolled `core.clj` -main, Integrant `system.clj`, and the `kb.clj` global atom) plus dynamic-var binding in the handlers facade; startup had already drifted between them (the Integrant path passed `port` into the `config` slot and silently bound 3000). We decided `system.clj` is the single wiring: `core.clj` keeps `-main` as a thin delegate so documented run commands stay valid, the dynamic vars (`*connection*`, `*policy-store*`, `*config*`) are retired in favour of explicit arguments, and the handlers facade is deleted. Known debt left deliberately: `ontology/kb.clj` still owns a global atom with 0-arity accessors; retire it in a later pass, not this one.

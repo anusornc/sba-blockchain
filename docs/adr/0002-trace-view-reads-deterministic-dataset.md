@@ -1,0 +1,3 @@
+# The Trace View reads the Deterministic Dataset, not the Ledger
+
+Two read models coexist on purpose: ledger trace endpoints query Datomic provenance, while the frontend's Trace View is served from the Deterministic Dataset so its output is stable without a running database. A future reader should not "fix" this by pointing the Trace View at the Ledger: the frontend hand-mirrors the contract in TypeScript with no runtime validation, so the wire is frozen and carries a `contract-version`; content changes (e.g. variant-specific Stages) require a version bump and the matching TypeScript update in the same change.
