@@ -26,3 +26,11 @@ crypto-config/
 wallet/
 keystore*
 benchmarks/real-world/results/
+
+# Local non-code artifacts: agent workspace, issue tracker, knowledge bundle
+.scratch/
+AGENTS.md
+docs/agents/
+docs/adr/
+okf/
+paper/
